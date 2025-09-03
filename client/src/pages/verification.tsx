@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import Navigation from "@/components/navigation";
+import { useBlockchainContext } from "@/context/BlockchainContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,9 +50,11 @@ import { format } from "date-fns";
 export default function Verification() {
   const { user, isLoading, isAuthenticated } = useAuth();
   const { toast } = useToast();
+  const { connected, contract, recordVerification } = useBlockchainContext();
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [isCreateVerificationOpen, setIsCreateVerificationOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [blockchainVerifying, setBlockchainVerifying] = useState(false);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -92,7 +95,42 @@ export default function Verification() {
 
   const createVerificationMutation = useMutation({
     mutationFn: async (verificationData: any) => {
-      await apiRequest("POST", `/api/products/${selectedProduct}/verifications`, verificationData);
+      // First save to database
+      const response = await apiRequest("POST", `/api/products/${selectedProduct}/verifications`, verificationData);
+      
+      // Then record on blockchain if connected
+      if (connected && contract && selectedProduct) {
+        setBlockchainVerifying(true);
+        try {
+          // Calculate validUntil timestamp (30 days from now)
+          const validUntil = Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60);
+          
+          // Record verification on blockchain
+          await recordVerification(
+            response.id,
+            selectedProduct,
+            verificationData.verificationType,
+            verificationData.result,
+            validUntil
+          );
+          
+          // Update the verification in database with blockchain hash
+          await apiRequest("PATCH", `/api/products/${selectedProduct}/verifications/${response.id}`, {
+            blockchainVerified: true
+          });
+        } catch (error) {
+          console.error("Error recording verification on blockchain:", error);
+          toast({
+            title: "Blockchain Warning",
+            description: "Verification saved to database but failed to record on blockchain.",
+            variant: "destructive",
+          });
+        } finally {
+          setBlockchainVerifying(false);
+        }
+      }
+      
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products", selectedProduct, "verifications"] });
@@ -442,9 +480,67 @@ export default function Verification() {
                               <h4 className="font-medium text-foreground capitalize" data-testid={`verification-type-${verification.id}`}>
                                 {verification.verificationType.replace('_', ' ')} Verification
                               </h4>
-                              <p className="text-sm text-muted-foreground" data-testid={`verification-date-${verification.id}`}>
-                                Verified on {format(new Date(verification.createdAt), 'MMM dd, yyyy')}
-                              </p>
+                              <div className="flex flex-col gap-1">
+                                <p className="text-sm text-muted-foreground" data-testid={`verification-date-${verification.id}`}>
+                                  Verified on {format(new Date(verification.createdAt), 'MMM dd, yyyy')}
+                                </p>
+                                {verification.blockchainVerified ? (
+                                  <div className="flex items-center">
+                                    <Badge className="bg-green-100 text-green-800 flex items-center gap-1">
+                                      <CheckCircle className="h-3 w-3" />
+                                      Blockchain Verified
+                                    </Badge>
+                                  </div>
+                                ) : connected ? (
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="h-6 px-2 text-xs w-fit"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      setBlockchainVerifying(true);
+                                      try {
+                                        // Calculate validUntil timestamp (30 days from now)
+                                        const validUntil = Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60);
+                                        
+                                        // Record verification on blockchain
+                                        await recordVerification(
+                                          verification.id,
+                                          selectedProduct!,
+                                          verification.verificationType,
+                                          verification.result,
+                                          validUntil
+                                        );
+                                        
+                                        // Update the verification in database with blockchain hash
+                                        await apiRequest("PATCH", `/api/products/${selectedProduct}/verifications/${verification.id}`, {
+                                          blockchainVerified: true
+                                        });
+                                        
+                                        // Refresh verifications
+                                        queryClient.invalidateQueries({ queryKey: ["/api/products", selectedProduct, "verifications"] });
+                                        
+                                        toast({
+                                          title: "Success",
+                                          description: "Verification recorded on blockchain",
+                                        });
+                                      } catch (error) {
+                                        console.error("Error recording verification on blockchain:", error);
+                                        toast({
+                                          title: "Blockchain Error",
+                                          description: "Failed to record verification on blockchain",
+                                          variant: "destructive",
+                                        });
+                                      } finally {
+                                        setBlockchainVerifying(false);
+                                      }
+                                    }}
+                                    disabled={blockchainVerifying}
+                                  >
+                                    {blockchainVerifying ? "Recording..." : "Record on Blockchain"}
+                                  </Button>
+                                ) : null}
+                              </div>
                               {verification.validUntil && (
                                 <p className="text-xs text-muted-foreground" data-testid={`verification-valid-until-${verification.id}`}>
                                   Valid until {format(new Date(verification.validUntil), 'MMM dd, yyyy')}

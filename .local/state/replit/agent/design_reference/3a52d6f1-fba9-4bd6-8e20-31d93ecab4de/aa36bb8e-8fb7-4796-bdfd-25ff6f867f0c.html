@@ -1,0 +1,489 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgriTrace - Blockchain Supply Chain Transparency</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                borderRadius: {
+                    lg: "var(--radius)",
+                    md: "calc(var(--radius) - 2px)",
+                    sm: "calc(var(--radius) - 4px)",
+                },
+                colors: {
+                    background: "var(--background)",
+                    foreground: "var(--foreground)",
+                    card: {
+                        DEFAULT: "var(--card)",
+                        foreground: "var(--card-foreground)",
+                    },
+                    primary: {
+                        DEFAULT: "var(--primary)",
+                        foreground: "var(--primary-foreground)",
+                    },
+                    secondary: {
+                        DEFAULT: "var(--secondary)",
+                        foreground: "var(--secondary-foreground)",
+                    },
+                    muted: {
+                        DEFAULT: "var(--muted)",
+                        foreground: "var(--muted-foreground)",
+                    },
+                    accent: {
+                        DEFAULT: "var(--accent)",
+                        foreground: "var(--accent-foreground)",
+                    },
+                    destructive: {
+                        DEFAULT: "var(--destructive)",
+                        foreground: "var(--destructive-foreground)",
+                    },
+                    border: "var(--border)",
+                    input: "var(--input)",
+                    ring: "var(--ring)",
+                }
+            },
+        }
+    };
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --background: hsl(210 40% 98%);
+            --foreground: hsl(222.2 84% 4.9%);
+            --card: hsl(0 0% 100%);
+            --card-foreground: hsl(222.2 84% 4.9%);
+            --primary: hsl(159 75% 31%);
+            --primary-foreground: hsl(210 40% 98%);
+            --secondary: hsl(207 89% 42%);
+            --secondary-foreground: hsl(210 40% 98%);
+            --muted: hsl(210 40% 96%);
+            --muted-foreground: hsl(215.4 16.3% 46.9%);
+            --accent: hsl(19 96% 50%);
+            --accent-foreground: hsl(210 40% 98%);
+            --destructive: hsl(0 84.2% 60.2%);
+            --destructive-foreground: hsl(210 40% 98%);
+            --border: hsl(214.3 31.8% 91.4%);
+            --input: hsl(214.3 31.8% 91.4%);
+            --ring: hsl(159 75% 31%);
+            --radius: 8px;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .glass-effect {
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.8);
+        }
+        
+        .qr-code {
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="white"/><g fill="black"><rect x="10" y="10" width="30" height="30"/><rect x="60" y="10" width="30" height="30"/><rect x="10" y="60" width="30" height="30"/><rect x="50" y="50" width="10" height="10"/><rect x="70" y="50" width="10" height="10"/><rect x="50" y="70" width="10" height="10"/><rect x="70" y="70" width="10" height="10"/></g></svg>') center/contain no-repeat;
+        }
+    </style>
+</head>
+<body class="bg-background text-foreground">
+    <!-- @COMPONENT: Header Navigation -->
+    <header class="bg-card border-b border-border sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-leaf text-primary text-2xl"></i>
+                        <span class="text-xl font-bold text-foreground">AgriTrace</span>
+                    </div>
+                    <nav class="hidden md:flex space-x-8">
+                        <a href="#dashboard" class="text-primary font-medium">Dashboard</a>
+                        <a href="#track" class="text-muted-foreground hover:text-foreground">Track Product</a>
+                        <a href="#verify" class="text-muted-foreground hover:text-foreground">Verify</a>
+                        <a href="#reports" class="text-muted-foreground hover:text-foreground">Reports</a>
+                    </nav>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="hidden md:flex items-center space-x-2">
+                        <div class="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
+                            <i class="fas fa-user text-sm"></i>
+                        </div>
+                        <span class="text-sm font-medium" data-bind="user.name">John Farmer</span>
+                        <span class="text-xs text-muted-foreground bg-primary/10 px-2 py-1 rounded-full">Farmer</span>
+                    </div>
+                    <button class="md:hidden">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+    <!-- @END_COMPONENT: Header Navigation -->
+
+    <!-- @COMPONENT: Main Dashboard -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Overview Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="bg-card rounded-lg p-6 border border-border">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-muted-foreground">Active Products</p>
+                        <p class="text-3xl font-bold text-foreground" data-bind="stats.activeProducts">24</p>
+                    </div>
+                    <div class="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-box text-primary"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-card rounded-lg p-6 border border-border">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-muted-foreground">Verified Transactions</p>
+                        <p class="text-3xl font-bold text-foreground" data-bind="stats.verifiedTx">156</p>
+                    </div>
+                    <div class="w-12 h-12 bg-secondary/10 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-check-circle text-secondary"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-card rounded-lg p-6 border border-border">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-muted-foreground">Supply Chain Partners</p>
+                        <p class="text-3xl font-bold text-foreground" data-bind="stats.partners">12</p>
+                    </div>
+                    <div class="w-12 h-12 bg-accent/10 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-users text-accent"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-card rounded-lg p-6 border border-border">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-muted-foreground">Revenue This Month</p>
+                        <p class="text-3xl font-bold text-foreground" data-bind="stats.revenue">$8,420</p>
+                    </div>
+                    <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-dollar-sign text-green-600"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Product Tracking Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <!-- QR Code Scanner/Generator -->
+            <div class="bg-card rounded-lg border border-border">
+                <div class="p-6 border-b border-border">
+                    <h3 class="text-lg font-semibold text-foreground">Product QR Code</h3>
+                    <p class="text-sm text-muted-foreground">Generate or scan QR codes for product tracking</p>
+                </div>
+                <div class="p-6">
+                    <div class="flex flex-col items-center space-y-4">
+                        <div class="w-48 h-48 qr-code border-2 border-border rounded-lg"></div>
+                        <div class="text-center">
+                            <p class="text-sm font-medium text-foreground" data-bind="product.id">Product ID: AGR-2024-001</p>
+                            <p class="text-xs text-muted-foreground" data-bind="product.name">Organic Tomatoes - 5kg</p>
+                        </div>
+                        <div class="flex space-x-2 w-full">
+                            <button class="flex-1 bg-primary text-primary-foreground px-4 py-2 rounded-md font-medium hover:bg-primary/90" data-event="click:generateQR">
+                                <i class="fas fa-qrcode mr-2"></i>Generate
+                            </button>
+                            <button class="flex-1 bg-secondary text-secondary-foreground px-4 py-2 rounded-md font-medium hover:bg-secondary/90" data-event="click:scanQR">
+                                <i class="fas fa-camera mr-2"></i>Scan
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Supply Chain Visualization -->
+            <div class="bg-card rounded-lg border border-border">
+                <div class="p-6 border-b border-border">
+                    <h3 class="text-lg font-semibold text-foreground">Supply Chain Journey</h3>
+                    <p class="text-sm text-muted-foreground">Track product movement through the supply chain</p>
+                </div>
+                <div class="p-6">
+                    <div class="space-y-4">
+                        <!-- @MAP: supplyChainSteps.map(step => ( -->
+                        <div class="flex items-center space-x-4">
+                            <div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+                                <i class="fas fa-check text-white text-xs"></i>
+                            </div>
+                            <div class="flex-1">
+                                <p class="font-medium text-foreground" data-bind="step.name">Farm Production</p>
+                                <p class="text-sm text-muted-foreground" data-bind="step.location">Green Valley Farm, CA</p>
+                                <p class="text-xs text-muted-foreground" data-bind="step.timestamp">Jan 15, 2024 - 08:30 AM</p>
+                            </div>
+                            <span class="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium" data-bind="step.status">Completed</span>
+                        </div>
+                        
+                        <div class="flex items-center space-x-4">
+                            <div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+                                <i class="fas fa-check text-white text-xs"></i>
+                            </div>
+                            <div class="flex-1">
+                                <p class="font-medium text-foreground">Quality Inspection</p>
+                                <p class="text-sm text-muted-foreground">AgriCert Labs</p>
+                                <p class="text-xs text-muted-foreground">Jan 16, 2024 - 02:15 PM</p>
+                            </div>
+                            <span class="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">Completed</span>
+                        </div>
+                        
+                        <div class="flex items-center space-x-4">
+                            <div class="w-8 h-8 bg-secondary rounded-full flex items-center justify-center">
+                                <i class="fas fa-truck text-white text-xs"></i>
+                            </div>
+                            <div class="flex-1">
+                                <p class="font-medium text-foreground">Distribution</p>
+                                <p class="text-sm text-muted-foreground">FreshLogistics Inc.</p>
+                                <p class="text-xs text-muted-foreground">Jan 17, 2024 - 06:00 AM</p>
+                            </div>
+                            <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">In Transit</span>
+                        </div>
+                        
+                        <div class="flex items-center space-x-4">
+                            <div class="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
+                                <i class="fas fa-store text-muted-foreground text-xs"></i>
+                            </div>
+                            <div class="flex-1">
+                                <p class="font-medium text-muted-foreground">Retail Store</p>
+                                <p class="text-sm text-muted-foreground">Pending</p>
+                                <p class="text-xs text-muted-foreground">Estimated: Jan 18, 2024</p>
+                            </div>
+                            <span class="bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs font-medium">Pending</span>
+                        </div>
+                        <!-- @END_MAP )) -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Transaction History & Product Management -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Recent Transactions -->
+            <div class="lg:col-span-2 bg-card rounded-lg border border-border">
+                <div class="p-6 border-b border-border">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h3 class="text-lg font-semibold text-foreground">Recent Transactions</h3>
+                            <p class="text-sm text-muted-foreground">Latest blockchain verified transactions</p>
+                        </div>
+                        <button class="bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90" data-event="click:viewAllTransactions">
+                            View All
+                        </button>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="border-b border-border">
+                                    <th class="text-left py-2 text-sm font-medium text-muted-foreground">Transaction ID</th>
+                                    <th class="text-left py-2 text-sm font-medium text-muted-foreground">Product</th>
+                                    <th class="text-left py-2 text-sm font-medium text-muted-foreground">From/To</th>
+                                    <th class="text-left py-2 text-sm font-medium text-muted-foreground">Status</th>
+                                    <th class="text-left py-2 text-sm font-medium text-muted-foreground">Date</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-border">
+                                <!-- @MAP: transactions.map(tx => ( -->
+                                <tr data-mock="true">
+                                    <td class="py-3 text-sm font-mono text-foreground" data-bind="tx.id">0x1a2b3c4d</td>
+                                    <td class="py-3 text-sm text-foreground" data-bind="tx.product">Organic Tomatoes</td>
+                                    <td class="py-3 text-sm text-muted-foreground" data-bind="tx.parties">Farm → Distributor</td>
+                                    <td class="py-3">
+                                        <span class="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium" data-bind="tx.status">Verified</span>
+                                    </td>
+                                    <td class="py-3 text-sm text-muted-foreground" data-bind="tx.date">Jan 17, 2024</td>
+                                </tr>
+                                <tr data-mock="true">
+                                    <td class="py-3 text-sm font-mono text-foreground">0x2b3c4d5e</td>
+                                    <td class="py-3 text-sm text-foreground">Fresh Lettuce</td>
+                                    <td class="py-3 text-sm text-muted-foreground">Distributor → Retailer</td>
+                                    <td class="py-3">
+                                        <span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs font-medium">Pending</span>
+                                    </td>
+                                    <td class="py-3 text-sm text-muted-foreground">Jan 16, 2024</td>
+                                </tr>
+                                <tr data-mock="true">
+                                    <td class="py-3 text-sm font-mono text-foreground">0x3c4d5e6f</td>
+                                    <td class="py-3 text-sm text-foreground">Bell Peppers</td>
+                                    <td class="py-3 text-sm text-muted-foreground">Farm → Inspector</td>
+                                    <td class="py-3">
+                                        <span class="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">Verified</span>
+                                    </td>
+                                    <td class="py-3 text-sm text-muted-foreground">Jan 15, 2024</td>
+                                </tr>
+                                <!-- @END_MAP )) -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="bg-card rounded-lg border border-border">
+                <div class="p-6 border-b border-border">
+                    <h3 class="text-lg font-semibold text-foreground">Quick Actions</h3>
+                    <p class="text-sm text-muted-foreground">Common tasks and operations</p>
+                </div>
+                <div class="p-6 space-y-4">
+                    <button class="w-full bg-primary text-primary-foreground p-4 rounded-lg text-left hover:bg-primary/90" data-event="click:addProduct">
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-plus-circle text-xl"></i>
+                            <div>
+                                <p class="font-medium">Add New Product</p>
+                                <p class="text-xs opacity-90">Register a new batch for tracking</p>
+                            </div>
+                        </div>
+                    </button>
+                    
+                    <button class="w-full bg-secondary text-secondary-foreground p-4 rounded-lg text-left hover:bg-secondary/90" data-event="click:verifyBatch">
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-shield-alt text-xl"></i>
+                            <div>
+                                <p class="font-medium">Verify Batch</p>
+                                <p class="text-xs opacity-90">Check authenticity and quality</p>
+                            </div>
+                        </div>
+                    </button>
+                    
+                    <button class="w-full bg-accent text-accent-foreground p-4 rounded-lg text-left hover:bg-accent/90" data-event="click:generateReport">
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-chart-bar text-xl"></i>
+                            <div>
+                                <p class="font-medium">Generate Report</p>
+                                <p class="text-xs opacity-90">Export transaction and quality data</p>
+                            </div>
+                        </div>
+                    </button>
+                    
+                    <button class="w-full bg-muted text-muted-foreground p-4 rounded-lg text-left hover:bg-muted/80" data-event="click:inviteStakeholder">
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-user-plus text-xl"></i>
+                            <div>
+                                <p class="font-medium">Invite Stakeholder</p>
+                                <p class="text-xs opacity-90">Add new supply chain partner</p>
+                            </div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Consumer Lookup Section (Modal/Overlay Example) -->
+        <div class="mt-8 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-border">
+            <div class="p-8 text-center">
+                <div class="max-w-md mx-auto">
+                    <h3 class="text-xl font-semibold text-foreground mb-2">Consumer Product Lookup</h3>
+                    <p class="text-muted-foreground mb-6">Scan QR code or enter product ID to trace origin and journey</p>
+                    <div class="flex space-x-2">
+                        <input type="text" placeholder="Enter Product ID (e.g., AGR-2024-001)" 
+                               class="flex-1 px-4 py-3 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" 
+                               data-implementation="Should validate and lookup product data">
+                        <button class="bg-primary text-primary-foreground px-6 py-3 rounded-md font-medium hover:bg-primary/90" data-event="click:lookupProduct">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                    <p class="text-xs text-muted-foreground mt-3">
+                        <i class="fas fa-lock mr-1"></i>
+                        All lookups are recorded on the blockchain for transparency
+                    </p>
+                </div>
+            </div>
+        </div>
+    </main>
+    <!-- @END_COMPONENT: Main Dashboard -->
+
+    <!-- Mobile Menu Overlay (Hidden by default) -->
+    <!-- @COMPONENT: Mobile Menu -->
+    <div class="fixed inset-0 z-50 hidden" id="mobile-menu">
+        <div class="fixed inset-0 bg-black/50" data-event="click:closeMobileMenu"></div>
+        <div class="fixed inset-y-0 right-0 w-64 bg-card shadow-xl">
+            <div class="flex flex-col h-full">
+                <div class="p-4 border-b border-border">
+                    <div class="flex items-center justify-between">
+                        <span class="font-semibold text-foreground">Menu</span>
+                        <button data-event="click:closeMobileMenu">
+                            <i class="fas fa-times text-muted-foreground"></i>
+                        </button>
+                    </div>
+                </div>
+                <nav class="flex-1 p-4 space-y-4">
+                    <a href="#dashboard" class="block py-2 text-primary font-medium">Dashboard</a>
+                    <a href="#track" class="block py-2 text-muted-foreground">Track Product</a>
+                    <a href="#verify" class="block py-2 text-muted-foreground">Verify</a>
+                    <a href="#reports" class="block py-2 text-muted-foreground">Reports</a>
+                </nav>
+                <div class="p-4 border-t border-border">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-muted rounded-full flex items-center justify-center">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div>
+                            <p class="font-medium text-foreground" data-bind="user.name">John Farmer</p>
+                            <p class="text-sm text-muted-foreground">Farmer</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- @END_COMPONENT: Mobile Menu -->
+
+    <script>
+        // TODO: Implement blockchain integration
+        // TODO: Implement QR code scanning functionality
+        // TODO: Implement real-time supply chain updates
+        // TODO: Implement stakeholder verification system
+        
+        (function() {
+            // Simple mock interactions for demonstration
+            const buttons = document.querySelectorAll('[data-event]');
+            buttons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const event = this.getAttribute('data-event');
+                    console.log('Event triggered:', event);
+                    
+                    // Mock responses
+                    if (event === 'click:generateQR') {
+                        alert('QR Code generated for product AGR-2024-001');
+                    } else if (event === 'click:scanQR') {
+                        alert('Camera access required for QR scanning');
+                    } else if (event === 'click:lookupProduct') {
+                        const input = document.querySelector('input[type="text"]');
+                        if (input.value) {
+                            alert(`Looking up product: ${input.value}`);
+                        } else {
+                            alert('Please enter a product ID');
+                        }
+                    }
+                });
+            });
+            
+            // Mobile menu toggle
+            const mobileMenuButton = document.querySelector('.md\\:hidden button');
+            const mobileMenu = document.getElementById('mobile-menu');
+            
+            if (mobileMenuButton && mobileMenu) {
+                mobileMenuButton.addEventListener('click', () => {
+                    mobileMenu.classList.remove('hidden');
+                });
+                
+                document.querySelectorAll('[data-event*="closeMobileMenu"]').forEach(el => {
+                    el.addEventListener('click', () => {
+                        mobileMenu.classList.add('hidden');
+                    });
+                });
+            }
+        })();
+    </script>
+</body>
+</html>

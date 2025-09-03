@@ -1,0 +1,19 @@
+await tx1.wait();
+const tx1 = await c.connect(deployer).createProducles")
+const [deployer, alice] = await ethers.getSigners();
+await c.getAddress(); // should print the same addr
+const c = await ethers.getContractAt("AgroChainProduct", addr);
+const addr = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+c.interface.fragments.filter(f => f.type === "function").forEach(f => console.log("-", f.format("full")));
+await c.getAddress();
+const c = await ethers.getContractAt("AgroChainProduct", addr);
+const addr = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+clear
+type.clear
+await c.getAddress();
+const c = await ethers.getContractAt("AgroChainPro
+const addr = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+c.target
+const c = await ethers.getContractAt("AgroChainPro
+const [me, other] = await ethers.getSigners();
+const addr = "0x5FbDB2315678afecb367f032d93F642f64180aa3";

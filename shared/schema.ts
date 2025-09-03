@@ -1,115 +1,115 @@
 import { sql } from 'drizzle-orm';
 import {
   index,
-  jsonb,
-  pgTable,
-  timestamp,
-  varchar,
+  sqliteTable,
   text,
-  decimal,
-  pgEnum,
-} from "drizzle-orm/pg-core";
+  integer,
+  real,
+  blob,
+} from "drizzle-orm/sqlite-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Session storage table for Replit Auth
-export const sessions = pgTable(
+export const sessions = sqliteTable(
   "sessions",
   {
-    sid: varchar("sid").primaryKey(),
-    sess: jsonb("sess").notNull(),
-    expire: timestamp("expire").notNull(),
+    sid: text("sid").primaryKey(),
+    sess: text("sess").notNull(), // Store JSON as text in SQLite
+    expire: integer("expire", { mode: 'timestamp' }).notNull(),
   },
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// User roles enum
-export const userRoleEnum = pgEnum('user_role', ['farmer', 'distributor', 'retailer', 'consumer', 'inspector']);
+// For SQLite, we'll use text fields instead of enums
+// These are the valid values for reference
+export const USER_ROLES = ['farmer', 'distributor', 'retailer', 'consumer', 'inspector'] as const;
+export type UserRole = typeof USER_ROLES[number];
 
-// Product status enum
-export const productStatusEnum = pgEnum('product_status', ['created', 'in_production', 'quality_check', 'in_transit', 'delivered', 'sold']);
+export const PRODUCT_STATUSES = ['created', 'in_production', 'quality_check', 'in_transit', 'delivered', 'sold'] as const;
+export type ProductStatus = typeof PRODUCT_STATUSES[number];
 
-// Transaction status enum
-export const transactionStatusEnum = pgEnum('transaction_status', ['pending', 'verified', 'completed', 'rejected']);
+export const TRANSACTION_STATUSES = ['pending', 'verified', 'completed', 'rejected'] as const;
+export type TransactionStatus = typeof TRANSACTION_STATUSES[number];
 
 // Users table for Replit Auth
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: varchar("email").unique(),
-  firstName: varchar("first_name"),
-  lastName: varchar("last_name"),
-  profileImageUrl: varchar("profile_image_url"),
-  role: userRoleEnum("role").notNull().default('consumer'),
-  companyName: varchar("company_name"),
-  location: varchar("location"),
-  verificationStatus: varchar("verification_status").default('pending'),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+export const users = sqliteTable("users", {
+  id: text("id").primaryKey().default(sql`(lower(hex(randomblob(16))))`),
+  email: text("email").unique(),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
+  profileImageUrl: text("profile_image_url"),
+  role: text("role").notNull().default('consumer'),
+  companyName: text("company_name"),
+  location: text("location"),
+  verificationStatus: text("verification_status").default('pending'),
+  createdAt: integer("created_at", { mode: 'timestamp' }).default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: 'timestamp' }).default(sql`(unixepoch())`),
 });
 
 // Products table
-export const products = pgTable("products", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: varchar("name").notNull(),
+export const products = sqliteTable("products", {
+  id: text("id").primaryKey().default(sql`(lower(hex(randomblob(16))))`),
+  name: text("name").notNull(),
   description: text("description"),
-  productType: varchar("product_type").notNull(),
-  batchNumber: varchar("batch_number").notNull().unique(),
-  quantity: decimal("quantity", { precision: 10, scale: 2 }).notNull(),
-  unit: varchar("unit").notNull(),
-  originFarmId: varchar("origin_farm_id").notNull(),
-  harvestDate: timestamp("harvest_date"),
-  expiryDate: timestamp("expiry_date"),
-  status: productStatusEnum("status").notNull().default('created'),
-  qrCode: varchar("qr_code").unique(),
-  createdBy: varchar("created_by").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  productType: text("product_type").notNull(),
+  batchNumber: text("batch_number").notNull().unique(),
+  quantity: real("quantity").notNull(),
+  unit: text("unit").notNull(),
+  originFarmId: text("origin_farm_id").notNull(),
+  harvestDate: integer("harvest_date", { mode: 'timestamp' }),
+  expiryDate: integer("expiry_date", { mode: 'timestamp' }),
+  status: text("status").notNull().default('created'),
+  qrCode: text("qr_code").unique(),
+  createdBy: text("created_by").notNull(),
+  createdAt: integer("created_at", { mode: 'timestamp' }).default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: 'timestamp' }).default(sql`(unixepoch())`),
 });
 
 // Supply chain stages table
-export const supplyChainStages = pgTable("supply_chain_stages", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  productId: varchar("product_id").notNull(),
-  stageName: varchar("stage_name").notNull(),
-  stageType: varchar("stage_type").notNull(), // production, inspection, transport, retail
-  handlerId: varchar("handler_id").notNull(),
-  location: varchar("location"),
-  timestamp: timestamp("timestamp").defaultNow(),
+export const supplyChainStages = sqliteTable("supply_chain_stages", {
+  id: text("id").primaryKey().default(sql`(lower(hex(randomblob(16))))`),
+  productId: text("product_id").notNull(),
+  stageName: text("stage_name").notNull(),
+  stageType: text("stage_type").notNull(), // production, inspection, transport, retail
+  handlerId: text("handler_id").notNull(),
+  location: text("location"),
+  timestamp: integer("timestamp", { mode: 'timestamp' }).default(sql`(unixepoch())`),
   notes: text("notes"),
-  verificationData: jsonb("verification_data"),
-  status: varchar("status").default('completed'),
+  verificationData: text("verification_data"), // Store JSON as text in SQLite
+  status: text("status").default('completed'),
 });
 
 // Transactions table
-export const transactions = pgTable("transactions", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  productId: varchar("product_id").notNull(),
-  fromUserId: varchar("from_user_id").notNull(),
-  toUserId: varchar("to_user_id").notNull(),
-  transactionType: varchar("transaction_type").notNull(), // transfer, sale, inspection
-  quantity: decimal("quantity", { precision: 10, scale: 2 }).notNull(),
-  price: decimal("price", { precision: 10, scale: 2 }),
-  currency: varchar("currency").default('USD'),
-  status: transactionStatusEnum("status").notNull().default('pending'),
-  blockchainHash: varchar("blockchain_hash"), // For future blockchain integration
+export const transactions = sqliteTable("transactions", {
+  id: text("id").primaryKey().default(sql`(lower(hex(randomblob(16))))`),
+  productId: text("product_id").notNull(),
+  fromUserId: text("from_user_id").notNull(),
+  toUserId: text("to_user_id").notNull(),
+  transactionType: text("transaction_type").notNull(), // transfer, sale, inspection
+  quantity: real("quantity").notNull(),
+  price: real("price"),
+  currency: text("currency").default('USD'),
+  status: text("status").notNull().default('pending'),
+  blockchainHash: text("blockchain_hash"), // For future blockchain integration
   verificationSignature: text("verification_signature"),
-  metadata: jsonb("metadata"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  metadata: text("metadata"), // Store JSON as text in SQLite
+  createdAt: integer("created_at", { mode: 'timestamp' }).default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: 'timestamp' }).default(sql`(unixepoch())`),
 });
 
 // Verifications table
-export const verifications = pgTable("verifications", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  productId: varchar("product_id").notNull(),
-  verifierId: varchar("verifier_id").notNull(),
-  verificationType: varchar("verification_type").notNull(), // quality, organic, safety
-  result: varchar("result").notNull(), // passed, failed, conditional
-  certificateUrl: varchar("certificate_url"),
+export const verifications = sqliteTable("verifications", {
+  id: text("id").primaryKey().default(sql`(lower(hex(randomblob(16))))`),
+  productId: text("product_id").notNull(),
+  verifierId: text("verifier_id").notNull(),
+  verificationType: text("verification_type").notNull(), // quality, organic, safety
+  result: text("result").notNull(), // passed, failed, conditional
+  certificateUrl: text("certificate_url"),
   notes: text("notes"),
-  validUntil: timestamp("valid_until"),
-  createdAt: timestamp("created_at").defaultNow(),
+  validUntil: integer("valid_until", { mode: 'timestamp' }),
+  createdAt: integer("created_at", { mode: 'timestamp' }).default(sql`(unixepoch())`),
 });
 
 // Define relations

@@ -1,69 +1,62 @@
-import * as client from "openid-client";
-import { Strategy, type VerifyFunction } from "openid-client/passport";
-
 import passport from "passport";
 import session from "express-session";
 import type { Express, RequestHandler } from "express";
-import memoize from "memoizee";
-import connectPg from "connect-pg-simple";
+import { Strategy as LocalStrategy } from "passport-local";
 import { storage } from "./storage";
+import { sqliteDb } from "./db";
+import { randomUUID } from "crypto";
 
-if (!process.env.REPLIT_DOMAINS) {
-  throw new Error("Environment variable REPLIT_DOMAINS not provided");
-}
+// Local development mode - skip Replit authentication
+const isDevelopment = process.env.NODE_ENV === "development";
 
-const getOidcConfig = memoize(
-  async () => {
-    return await client.discovery(
-      new URL(process.env.ISSUER_URL ?? "https://replit.com/oidc"),
-      process.env.REPL_ID!
-    );
-  },
-  { maxAge: 3600 * 1000 }
-);
-
+// Setup SQLite session store
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
-  const pgStore = connectPg(session);
-  const sessionStore = new pgStore({
-    conString: process.env.DATABASE_URL,
-    createTableIfMissing: false,
-    ttl: sessionTtl,
-    tableName: "sessions",
-  });
+  
+  // In-memory session store for development
   return session({
-    secret: process.env.SESSION_SECRET!,
-    store: sessionStore,
+    secret: process.env.SESSION_SECRET || 'dev-secret-key',
     resave: false,
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: true,
+      secure: !isDevelopment, // Only use secure in production
       maxAge: sessionTtl,
     },
   });
 }
 
-function updateUserSession(
-  user: any,
-  tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers
-) {
-  user.claims = tokens.claims();
-  user.access_token = tokens.access_token;
-  user.refresh_token = tokens.refresh_token;
-  user.expires_at = user.claims?.exp;
-}
+// Mock user for development
+const mockUser = {
+  id: "dev-user-1",
+  email: "farmer@example.com",
+  firstName: "John",
+  lastName: "Farmer",
+  profileImageUrl: "https://ui-avatars.com/api/?name=John+Farmer",
+  role: "farmer",
+  companyName: "Green Acres Farm",
+  location: "Farmville, CA",
+  verificationStatus: "verified",
+};
 
-async function upsertUser(
-  claims: any,
-) {
+// Simple function to update user session for local development
+function updateUserSession(user: any) {
+  // For development, we don't need tokens
+  user.expires_at = Math.floor(Date.now() / 1000) + 86400; // Expires in 24 hours
+}
+async function upsertUser(user: any) {
   await storage.upsertUser({
-    id: claims["sub"],
-    email: claims["email"],
-    firstName: claims["first_name"],
-    lastName: claims["last_name"],
-    profileImageUrl: claims["profile_image_url"],
+    id: user.id,
+    email: user.email,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    profileImageUrl: user.profileImageUrl,
+    role: user.role,
+    companyName: user.companyName,
+    location: user.location,
+    verificationStatus: user.verificationStatus,
   });
+  return user;
 }
 
 export async function setupAuth(app: Express) {
@@ -72,57 +65,60 @@ export async function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  const config = await getOidcConfig();
+  if (isDevelopment) {
+    // For development, use a simple local strategy
+    passport.use(new LocalStrategy(
+      { usernameField: 'email', passwordField: 'password' },
+      async (email, password, done) => {
+        // In development, always authenticate successfully with mock user
+        const user = mockUser;
+        await upsertUser(user);
+        updateUserSession(user);
+        return done(null, user);
+      }
+    ));
 
-  const verify: VerifyFunction = async (
-    tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
-    verified: passport.AuthenticateCallback
-  ) => {
-    const user = {};
-    updateUserSession(user, tokens);
-    await upsertUser(tokens.claims());
-    verified(null, user);
-  };
-
-  for (const domain of process.env
-    .REPLIT_DOMAINS!.split(",")) {
-    const strategy = new Strategy(
-      {
-        name: `replitauth:${domain}`,
-        config,
-        scope: "openid email profile offline_access",
-        callbackURL: `https://${domain}/api/callback`,
-      },
-      verify,
-    );
-    passport.use(strategy);
+    // Auto-login middleware for development
+    app.use((req, res, next) => {
+      if (!req.isAuthenticated()) {
+        req.login(mockUser, (err) => {
+          if (err) return next(err);
+          next();
+        });
+      } else {
+        next();
+      }
+    });
   }
 
   passport.serializeUser((user: Express.User, cb) => cb(null, user));
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
   app.get("/api/login", (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`, {
-      prompt: "login consent",
-      scope: ["openid", "email", "profile", "offline_access"],
-    })(req, res, next);
+    if (isDevelopment) {
+      // In development, authenticate with mock user
+      req.login(mockUser, (err) => {
+        if (err) return next(err);
+        // Return success response instead of redirect for fetch requests
+        res.status(200).json({ success: true, user: mockUser });
+      });
+    } else {
+      // In production, use Replit auth
+      res.status(500).send('Replit authentication not configured');
+    }
   });
 
   app.get("/api/callback", (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`, {
-      successReturnToOrRedirect: "/",
-      failureRedirect: "/api/login",
-    })(req, res, next);
+    if (isDevelopment) {
+      res.redirect('/');
+    } else {
+      res.status(500).send('Replit authentication not configured');
+    }
   });
 
   app.get("/api/logout", (req, res) => {
     req.logout(() => {
-      res.redirect(
-        client.buildEndSessionUrl(config, {
-          client_id: process.env.REPL_ID!,
-          post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
-        }).href
-      );
+      res.redirect('/');
     });
   });
 }
@@ -130,7 +126,17 @@ export async function setupAuth(app: Express) {
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const user = req.user as any;
 
-  if (!req.isAuthenticated() || !user.expires_at) {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  if (isDevelopment) {
+    // In development, always proceed
+    return next();
+  }
+
+  // For production, check token expiration
+  if (!user.expires_at) {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
@@ -139,19 +145,6 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     return next();
   }
 
-  const refreshToken = user.refresh_token;
-  if (!refreshToken) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
-  }
-
-  try {
-    const config = await getOidcConfig();
-    const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
-    updateUserSession(user, tokenResponse);
-    return next();
-  } catch (error) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
-  }
+  // Token refresh logic would go here for production
+  return res.status(401).json({ message: "Session expired" });
 };

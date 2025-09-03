@@ -10,6 +10,7 @@ import Dashboard from "@/pages/dashboard";
 import ProductTracking from "@/pages/product-tracking";
 import Verification from "@/pages/verification";
 import ConsumerLookup from "@/pages/consumer-lookup";
+import { BlockchainProvider } from "@/context/BlockchainContext";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -39,10 +40,12 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
+      <BlockchainProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Router />
+        </TooltipProvider>
+      </BlockchainProvider>
     </QueryClientProvider>
   );
 }
