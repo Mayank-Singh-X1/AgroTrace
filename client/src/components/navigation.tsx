@@ -6,6 +6,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Link, useLocation } from "wouter";
 import { Leaf, Menu, LogOut } from "lucide-react";
 import { useState } from "react";
+import WalletConnect from "@/components/wallet-connect";
 
 export default function Navigation() {
   const { user } = useAuth();
@@ -58,6 +59,9 @@ export default function Navigation() {
           </div>
           
           <div className="flex items-center space-x-4">
+            <div className="hidden md:block">
+              <WalletConnect />
+            </div>
             {user && (
               <div className="hidden md:flex items-center space-x-3">
                 <Avatar className="w-8 h-8">
@@ -101,6 +105,9 @@ export default function Navigation() {
                   
                   <nav className="flex flex-col space-y-4 flex-1">
                     <NavItems />
+                    <div className="mt-4">
+                      <WalletConnect />
+                    </div>
                   </nav>
                   
                   {user && (

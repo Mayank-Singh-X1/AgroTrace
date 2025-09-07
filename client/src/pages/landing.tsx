@@ -4,10 +4,12 @@ import { Input } from "@/components/ui/input";
 import { Leaf, Shield, Eye, Truck, QrCode, Users } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Landing() {
   const [lookupId, setLookupId] = useState("");
   const [, setLocation] = useLocation();
+  const { refreshAuth } = useAuth();
 
   const handleLookup = () => {
     if (lookupId.trim()) {
@@ -15,8 +17,48 @@ export default function Landing() {
     }
   };
 
-  const handleLogin = () => {
-    window.location.href = "/api/login";
+  const handleLogin = (e: React.MouseEvent) => {
+    e.preventDefault();
+    // Use fetch instead of window.location to prevent page refresh
+    fetch('/api/login', {
+      method: 'GET',
+      credentials: 'include',
+    })
+      .then(response => {
+        if (response.ok) {
+          // If login successful, refresh auth state and navigate to dashboard
+          refreshAuth();
+          setLocation('/');
+        } else {
+          // Handle any other response
+          console.error('Login failed');
+        }
+      })
+      .catch(error => {
+        console.error('Login error:', error);
+      });
+  };
+
+  const handleStakeholderLogin = (e: React.MouseEvent) => {
+    e.preventDefault();
+    // Use fetch instead of window.location to prevent page refresh
+    fetch('/api/login', {
+      method: 'GET',
+      credentials: 'include',
+    })
+      .then(response => {
+        if (response.ok) {
+          // If login successful, refresh auth state and navigate to dashboard
+          refreshAuth();
+          setLocation('/');
+        } else {
+          // Handle any other response
+          console.error('Login failed');
+        }
+      })
+      .catch(error => {
+        console.error('Login error:', error);
+      });
   };
 
   return (

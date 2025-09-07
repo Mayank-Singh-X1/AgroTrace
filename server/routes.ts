@@ -12,7 +12,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      // In development, use the user ID directly from req.user
+      // In production, get it from claims.sub
+      const isDevelopment = process.env.NODE_ENV === "development";
+      const userId = isDevelopment ? req.user.id : req.user.claims.sub;
+      
+      if (isDevelopment && req.user) {
+        // In development, return the mock user directly
+        return res.json(req.user);
+      }
+      
       const user = await storage.getUser(userId);
       res.json(user);
     } catch (error) {
@@ -24,15 +33,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Product routes
   app.get('/api/products', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      // In development mode, handle the case when req.user might be undefined
+      const isDevelopment = process.env.NODE_ENV === "development";
       
-      // If farmer, show only their products. Others can see all
-      const products = user?.role === 'farmer' 
-        ? await storage.getProducts(userId)
-        : await storage.getProducts();
-      
-      res.json(products);
+      if (isDevelopment) {
+        // For development, if req.user is undefined or doesn't have an id, return all products
+        if (!req.user || !req.user.id) {
+          console.log("No user found in request, returning all products");
+          const products = await storage.getProducts();
+          return res.json(products);
+        }
+        
+        // If we have a user, proceed normally
+        const userId = req.user.id;
+        const user = await storage.getUser(userId);
+        
+        // If farmer, show only their products. Others can see all
+        const products = user?.role === 'farmer' 
+          ? await storage.getProducts(userId)
+          : await storage.getProducts();
+        
+        return res.json(products);
+      } else {
+        // Production mode
+        const userId = req.user.claims.sub;
+        const user = await storage.getUser(userId);
+        
+        // If farmer, show only their products. Others can see all
+        const products = user?.role === 'farmer' 
+          ? await storage.getProducts(userId)
+          : await storage.getProducts();
+        
+        return res.json(products);
+      }
     } catch (error) {
       console.error("Error fetching products:", error);
       res.status(500).json({ message: "Failed to fetch products" });
@@ -226,7 +259,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Analytics routes
   app.get('/api/analytics/stats', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      // In development, use the user ID directly from req.user
+      // In production, get it from claims.sub
+      const isDevelopment = process.env.NODE_ENV === "development";
+      let userId;
+      
+      if (isDevelopment) {
+        // Handle case where req.user might be undefined in development
+        userId = req.user?.id;
+      } else {
+        userId = req.user?.claims?.sub;
+      }
+      
       const stats = await storage.getUserStats(userId);
       res.json(stats);
     } catch (error) {
