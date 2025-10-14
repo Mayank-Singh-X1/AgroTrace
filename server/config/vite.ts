@@ -1,9 +1,10 @@
 import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
-import viteConfig from "../vite.config";
+import viteConfig from "../../vite.config.ts";
 import { nanoid } from "nanoid";
 
 const viteLogger = createLogger();
@@ -45,12 +46,18 @@ export async function setupVite(app: Express, server: Server) {
     const url = req.originalUrl;
 
     try {
+      // --- THIS IS THE FINAL FIX ---
+      const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+      // Resolve the path to index.html inside the root 'client' folder
       const clientTemplate = path.resolve(
-        import.meta.dirname,
-        "..",
-        "client",
-        "index.html",
+        __dirname,
+        '..',         // from server/config -> to server/
+        '..',         // from server/ -> to project root
+        'client',     // into the 'client' folder
+        'index.html'  // the file we need
       );
+      // --- END OF FIX ---
 
       // always reload the index.html file from disk incase it changes
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
@@ -68,17 +75,24 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(import.meta.dirname, "public");
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+  // This part is for production builds. It correctly points to the 'dist' folder.
+  const distPath = path.resolve(
+    __dirname,
+    '..',
+    '..',
+    'dist'
+  );
 
   if (!fs.existsSync(distPath)) {
     throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
+      `Could not find the build directory: ${distPath}, make sure to build the client first by running 'npm run build'`,
     );
   }
 
   app.use(express.static(distPath));
 
-  // fall through to index.html if the file doesn't exist
   app.use("*", (_req, res) => {
     res.sendFile(path.resolve(distPath, "index.html"));
   });
