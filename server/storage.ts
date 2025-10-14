@@ -40,16 +40,26 @@ function stringifyJsonField(value: any) {
   }
 }
 import { randomUUID } from "crypto";
+import { qrCodeService } from './qrService';
 
 export interface IStorage {
+  // Database initialization
+  initializeTables(): Promise<void>;
+  
   // User operations (mandatory for Replit Auth)
   getUser(id: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  getAllUsers(): Promise<User[]>;
+  getUsersByRole(role: string): Promise<User[]>;
   upsertUser(user: UpsertUser): Promise<User>;
   
   // Product operations
   getProducts(createdBy?: string): Promise<Product[]>;
   getProduct(id: string): Promise<Product | undefined>;
   getProductByBatchNumber(batchNumber: string): Promise<Product | undefined>;
+  getProductsByStatus(status: string, createdBy?: string): Promise<Product[]>;
+  getProductsByType(productType: string, createdBy?: string): Promise<Product[]>;
+  getRecentProducts(limit?: number, createdBy?: string): Promise<Product[]>;
   createProduct(product: InsertProduct): Promise<Product>;
   updateProduct(id: string, updates: Partial<Product>): Promise<Product>;
   
@@ -76,24 +86,192 @@ export interface IStorage {
   }>;
   
   // Search operations
-  searchProducts(query: string): Promise<Product[]>;
+  searchProducts(query: string, filters?: {
+    status?: string;
+    productType?: string;
+    createdBy?: string;
+    location?: string;
+  }): Promise<Product[]>;
+  searchProductsAdvanced(searchParams: {
+    query?: string;
+    status?: string[];
+    productTypes?: string[];
+    harvestDateFrom?: Date;
+    harvestDateTo?: Date;
+    location?: string;
+    verified?: boolean;
+    limit?: number;
+  }): Promise<Product[]>;
 }
 
 export class DatabaseStorage implements IStorage {
+  // Initialize database tables if they don't exist
+  async initializeTables(): Promise<void> {
+    try {
+      // This will create tables if they don't exist based on the schema
+      console.log('Initializing database tables...');
+      
+      // Test connection by trying to query users table
+      try {
+        await db.select().from(users).limit(1);
+        console.log('✅ Database tables are ready');
+      } catch (error) {
+        console.log('⚠️ Database tables may not exist, but schema should handle creation');
+      }
+      
+      // Initialize sample data for development
+      if (process.env.NODE_ENV === 'development') {
+        await this.initializeSampleData();
+      }
+    } catch (error) {
+      console.error('❌ Error initializing database:', error);
+      throw error;
+    }
+  }
+  
+  // Initialize sample data for development
+  async initializeSampleData(): Promise<void> {
+    try {
+      console.log('Initializing sample data for development...');
+      
+      // Check if sample users already exist
+      const existingUsers = await this.getAllUsers();
+      if (existingUsers.length > 0) {
+        console.log('✅ Sample data already exists, skipping initialization');
+        return;
+      }
+      
+      // Create sample users
+      const sampleUsers = [
+        {
+          id: "dev-farmer-1",
+          email: "farmer@example.com",
+          firstName: "John",
+          lastName: "Farmer",
+          profileImageUrl: "https://ui-avatars.com/api/?name=John+Farmer&background=16a34a&color=ffffff",
+          role: "farmer",
+          companyName: "Green Acres Farm",
+          location: "Farmville, CA",
+          verificationStatus: "verified",
+        },
+        {
+          id: "dev-distributor-1",
+          email: "distributor@example.com",
+          firstName: "Sarah",
+          lastName: "Distribution",
+          profileImageUrl: "https://ui-avatars.com/api/?name=Sarah+Distribution&background=2563eb&color=ffffff",
+          role: "distributor",
+          companyName: "FastTrack Logistics",
+          location: "Los Angeles, CA",
+          verificationStatus: "verified",
+        },
+        {
+          id: "dev-retailer-1",
+          email: "retailer@example.com",
+          firstName: "Mike",
+          lastName: "Store",
+          profileImageUrl: "https://ui-avatars.com/api/?name=Mike+Store&background=dc2626&color=ffffff",
+          role: "retailer",
+          companyName: "Fresh Market Store",
+          location: "San Francisco, CA",
+          verificationStatus: "verified",
+        },
+        {
+          id: "dev-inspector-1",
+          email: "inspector@example.com",
+          firstName: "Emma",
+          lastName: "Inspector",
+          profileImageUrl: "https://ui-avatars.com/api/?name=Emma+Inspector&background=7c3aed&color=ffffff",
+          role: "inspector",
+          companyName: "Quality Assurance Corp",
+          location: "Sacramento, CA",
+          verificationStatus: "verified",
+        },
+        {
+          id: "dev-consumer-1",
+          email: "consumer@example.com",
+          firstName: "Alex",
+          lastName: "Consumer",
+          profileImageUrl: "https://ui-avatars.com/api/?name=Alex+Consumer&background=059669&color=ffffff",
+          role: "consumer",
+          companyName: null,
+          location: "San Jose, CA",
+          verificationStatus: "verified",
+        }
+      ];
+      
+      // Insert sample users
+      for (const userData of sampleUsers) {
+        await this.upsertUser(userData);
+        console.log(`✅ Created sample user: ${userData.email} (${userData.role})`);
+      }
+      
+      // Create some sample products for the farmer
+      const sampleProducts = [
+        {
+          name: "Organic Tomatoes",
+          description: "Fresh organic tomatoes grown using sustainable farming practices",
+          productType: "vegetables",
+          batchNumber: "TOM-2024-001",
+          quantity: 100,
+          unit: "kg",
+          originFarmId: "dev-farmer-1",
+          harvestDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
+          expiryDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days from now
+          status: "created",
+          createdBy: "dev-farmer-1"
+        },
+        {
+          name: "Fresh Apples",
+          description: "Crisp and sweet apples from our family orchard",
+          productType: "fruits",
+          batchNumber: "APP-2024-002",
+          quantity: 50,
+          unit: "kg",
+          originFarmId: "dev-farmer-1",
+          harvestDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
+          expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+          status: "in_production",
+          createdBy: "dev-farmer-1"
+        },
+        {
+          name: "Free-Range Eggs",
+          description: "Farm-fresh eggs from free-range chickens",
+          productType: "dairy",
+          batchNumber: "EGG-2024-003",
+          quantity: 24,
+          unit: "dozen",
+          originFarmId: "dev-farmer-1",
+          harvestDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
+          expiryDate: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000), // 21 days from now
+          status: "quality_check",
+          createdBy: "dev-farmer-1"
+        }
+      ];
+      
+      // Insert sample products
+      for (const productData of sampleProducts) {
+        try {
+          const product = await this.createProduct(productData);
+          console.log(`✅ Created sample product: ${product.name} (${product.batchNumber})`);
+        } catch (error) {
+          console.error(`❌ Failed to create sample product ${productData.name}:`, error);
+        }
+      }
+      
+      console.log('✅ Sample data initialization completed');
+      
+    } catch (error) {
+      console.error('❌ Error initializing sample data:', error);
+      // Don't throw the error - sample data is not critical
+    }
+  }
+
   // User operations
   async getUser(id: string): Promise<User | undefined> {
-    // Return a mock user if id is undefined or null
     if (!id) {
-      console.log("No user ID provided, returning mock user");
-      return {
-        id: "mock-user-id",
-        name: "Mock User",
-        email: "mock@example.com",
-        role: "admin",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        metadata: null
-      };
+      console.log("No user ID provided, returning undefined");
+      return undefined;
     }
     
     try {
@@ -101,16 +279,35 @@ export class DatabaseStorage implements IStorage {
       return user;
     } catch (error) {
       console.error("Error fetching user:", error);
-      // Return a mock user if there's an error
-      return {
-        id: id,
-        name: "Mock User",
-        email: "mock@example.com",
-        role: "admin",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        metadata: null
-      };
+      return undefined;
+    }
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    try {
+      const [user] = await db.select().from(users).where(eq(users.email, email));
+      return user;
+    } catch (error) {
+      console.error("Error fetching user by email:", error);
+      return undefined;
+    }
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    try {
+      return await db.select().from(users).orderBy(desc(users.createdAt));
+    } catch (error) {
+      console.error("Error fetching all users:", error);
+      return [];
+    }
+  }
+
+  async getUsersByRole(role: string): Promise<User[]> {
+    try {
+      return await db.select().from(users).where(eq(users.role, role)).orderBy(desc(users.createdAt));
+    } catch (error) {
+      console.error("Error fetching users by role:", error);
+      return [];
     }
   }
 
@@ -132,94 +329,62 @@ export class DatabaseStorage implements IStorage {
   // Product operations
   async getProducts(createdBy?: string): Promise<Product[]> {
     try {
-      // Return mock products for development environment
-      const mockProducts = [
-        {
-          id: "mock-product-1",
-          name: "Organic Wheat",
-          description: "Premium quality organic wheat",
-          batchNumber: "BATCH-001",
-          productType: "Grain",
-          quantity: 1000,
-          unit: "kg",
-          price: "2500.00",
-          status: "in_production",
-          createdBy: "mock-user",
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          metadata: null
-        },
-        {
-          id: "mock-product-2",
-          name: "Fresh Apples",
-          description: "Freshly harvested apples",
-          batchNumber: "BATCH-002",
-          productType: "Fruit",
-          quantity: 500,
-          unit: "kg",
-          price: "1500.00",
-          status: "quality_check",
-          createdBy: "mock-user",
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          metadata: null
-        }
-      ];
+      let query = db.select().from(products);
       
-      // If database operations fail, return mock data
-      try {
-        // If createdBy is undefined or empty, return all products
-        if (!createdBy) {
-          const allProducts = await db
-            .select()
-            .from(products)
-            .orderBy(desc(products.createdAt));
-            
-          if (allProducts.length === 0) {
-            console.log("No products found, returning mock data");
-            return mockProducts;
-          }
-          
-          return allProducts;
-        }
-        
-        // If createdBy is provided, return products for that user
-        const userProducts = await db
-          .select()
-          .from(products)
-          .where(eq(products.createdBy, createdBy))
-          .orderBy(desc(products.createdAt));
-          
-        if (userProducts.length === 0) {
-          console.log("No products found for user, returning mock data");
-          return mockProducts;
-        }
-        
-        return userProducts;
-      } catch (dbError) {
-        console.error("Database error in getProducts:", dbError);
-        return mockProducts;
+      if (createdBy) {
+        query = query.where(eq(products.createdBy, createdBy));
       }
+      
+      const result = await query.orderBy(desc(products.createdAt));
+      return result;
     } catch (error) {
-      console.error("Error in getProducts:", error);
-      // Return mock products as fallback
-      return [
-        {
-          id: "error-product-1",
-          name: "Error Fallback Product",
-          description: "This is a fallback product when errors occur",
-          batchNumber: "ERROR-001",
-          productType: "Error",
-          quantity: 1,
-          unit: "unit",
-          price: "0.00",
-          status: "error",
-          createdBy: "system",
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          metadata: null
-        }
-      ];
+      console.error("Error fetching products:", error);
+      return [];
+    }
+  }
+
+  async getProductsByStatus(status: string, createdBy?: string): Promise<Product[]> {
+    try {
+      let query = db.select().from(products).where(eq(products.status, status));
+      
+      if (createdBy) {
+        query = query.where(and(eq(products.status, status), eq(products.createdBy, createdBy)));
+      }
+      
+      return await query.orderBy(desc(products.createdAt));
+    } catch (error) {
+      console.error("Error fetching products by status:", error);
+      return [];
+    }
+  }
+
+  async getProductsByType(productType: string, createdBy?: string): Promise<Product[]> {
+    try {
+      let query = db.select().from(products).where(eq(products.productType, productType));
+      
+      if (createdBy) {
+        query = query.where(and(eq(products.productType, productType), eq(products.createdBy, createdBy)));
+      }
+      
+      return await query.orderBy(desc(products.createdAt));
+    } catch (error) {
+      console.error("Error fetching products by type:", error);
+      return [];
+    }
+  }
+
+  async getRecentProducts(limit: number = 10, createdBy?: string): Promise<Product[]> {
+    try {
+      let query = db.select().from(products);
+      
+      if (createdBy) {
+        query = query.where(eq(products.createdBy, createdBy));
+      }
+      
+      return await query.orderBy(desc(products.createdAt)).limit(limit);
+    } catch (error) {
+      console.error("Error fetching recent products:", error);
+      return [];
     }
   }
 
@@ -234,11 +399,34 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createProduct(product: InsertProduct): Promise<Product> {
-    const qrCode = `QR-${randomUUID().slice(0, 8).toUpperCase()}`;
+    // Generate a unique QR code identifier
+    const qrCodeId = `QR-${randomUUID().slice(0, 8).toUpperCase()}`;
+    
+    // Create the product first
     const [newProduct] = await db
       .insert(products)
-      .values({ ...product, qrCode })
+      .values({ ...product, qrCode: qrCodeId })
       .returning();
+    
+    try {
+      // Get farmer information for QR code
+      const farmer = await this.getUser(product.createdBy);
+      const farmerName = farmer ? `${farmer.firstName || ''} ${farmer.lastName || ''}`.trim() : 'Unknown Farmer';
+      
+      // Generate QR code data and image
+      const qrData = qrCodeService.generateQRData(newProduct, farmerName);
+      const qrCodeImage = await qrCodeService.generateQRCode(qrData);
+      
+      console.log(`✅ Generated QR code for product ${newProduct.name} (${newProduct.batchNumber})`);
+      
+      // You could store the QR code image in a file system or cloud storage here
+      // For now, we'll just log that it was generated
+      
+    } catch (qrError) {
+      console.error('⚠️ Failed to generate QR code for product:', qrError);
+      // Don't fail the product creation if QR generation fails
+    }
+    
     return newProduct;
   }
 
@@ -524,16 +712,141 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Search operations
-  async searchProducts(query: string): Promise<Product[]> {
-    return await db
-      .select()
-      .from(products)
-      .where(or(
-        like(products.name, `%${query}%`),
-        like(products.batchNumber, `%${query}%`),
-        like(products.productType, `%${query}%`)
-      ))
-      .orderBy(desc(products.createdAt));
+  async searchProducts(query: string, filters?: {
+    status?: string;
+    productType?: string;
+    createdBy?: string;
+    location?: string;
+  }): Promise<Product[]> {
+    try {
+      let searchQuery = db
+        .select({
+          id: products.id,
+          name: products.name,
+          description: products.description,
+          productType: products.productType,
+          batchNumber: products.batchNumber,
+          quantity: products.quantity,
+          unit: products.unit,
+          originFarmId: products.originFarmId,
+          harvestDate: products.harvestDate,
+          expiryDate: products.expiryDate,
+          status: products.status,
+          qrCode: products.qrCode,
+          createdBy: products.createdBy,
+          createdAt: products.createdAt,
+          updatedAt: products.updatedAt,
+          farmerName: users.firstName,
+          farmerLastName: users.lastName,
+          farmLocation: users.location
+        })
+        .from(products)
+        .leftJoin(users, eq(products.createdBy, users.id))
+        .where(or(
+          like(products.name, `%${query}%`),
+          like(products.batchNumber, `%${query}%`),
+          like(products.productType, `%${query}%`),
+          like(products.description, `%${query}%`)
+        ));
+
+      // Apply filters if provided
+      if (filters) {
+        if (filters.status) {
+          searchQuery = searchQuery.where(eq(products.status, filters.status));
+        }
+        if (filters.productType) {
+          searchQuery = searchQuery.where(eq(products.productType, filters.productType));
+        }
+        if (filters.createdBy) {
+          searchQuery = searchQuery.where(eq(products.createdBy, filters.createdBy));
+        }
+        if (filters.location) {
+          searchQuery = searchQuery.where(like(users.location, `%${filters.location}%`));
+        }
+      }
+
+      return await searchQuery.orderBy(desc(products.createdAt));
+    } catch (error) {
+      console.error("Error searching products:", error);
+      return [];
+    }
+  }
+
+  async searchProductsAdvanced(searchParams: {
+    query?: string;
+    status?: string[];
+    productTypes?: string[];
+    harvestDateFrom?: Date;
+    harvestDateTo?: Date;
+    location?: string;
+    verified?: boolean;
+    limit?: number;
+  }): Promise<Product[]> {
+    try {
+      let searchQuery = db
+        .select({
+          id: products.id,
+          name: products.name,
+          description: products.description,
+          productType: products.productType,
+          batchNumber: products.batchNumber,
+          quantity: products.quantity,
+          unit: products.unit,
+          originFarmId: products.originFarmId,
+          harvestDate: products.harvestDate,
+          expiryDate: products.expiryDate,
+          status: products.status,
+          qrCode: products.qrCode,
+          createdBy: products.createdBy,
+          createdAt: products.createdAt,
+          updatedAt: products.updatedAt,
+          farmerName: users.firstName,
+          farmerLastName: users.lastName,
+          farmLocation: users.location,
+          hasVerification: verifications.id
+        })
+        .from(products)
+        .leftJoin(users, eq(products.createdBy, users.id))
+        .leftJoin(verifications, eq(products.id, verifications.productId));
+
+      let conditions = [];
+
+      if (searchParams.query) {
+        conditions.push(or(
+          like(products.name, `%${searchParams.query}%`),
+          like(products.batchNumber, `%${searchParams.query}%`),
+          like(products.productType, `%${searchParams.query}%`),
+          like(products.description, `%${searchParams.query}%`)
+        ));
+      }
+
+      if (searchParams.status && searchParams.status.length > 0) {
+        const statusConditions = searchParams.status.map(s => eq(products.status, s));
+        conditions.push(or(...statusConditions));
+      }
+
+      if (searchParams.productTypes && searchParams.productTypes.length > 0) {
+        const typeConditions = searchParams.productTypes.map(t => eq(products.productType, t));
+        conditions.push(or(...typeConditions));
+      }
+
+      if (searchParams.location) {
+        conditions.push(like(users.location, `%${searchParams.location}%`));
+      }
+
+      if (conditions.length > 0) {
+        searchQuery = searchQuery.where(and(...conditions));
+      }
+
+      const result = await searchQuery
+        .orderBy(desc(products.createdAt))
+        .limit(searchParams.limit || 50);
+
+      return result;
+    } catch (error) {
+      console.error("Error in advanced product search:", error);
+      return [];
+    }
   }
 }
 

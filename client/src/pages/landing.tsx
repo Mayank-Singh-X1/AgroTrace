@@ -1,15 +1,26 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Leaf, Shield, Eye, Truck, QrCode, Users } from "lucide-react";
-import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Leaf, Shield, Eye, Truck, QrCode, Users, User, Building, Store, CheckCircle2, Search } from "lucide-react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
 
 export default function Landing() {
   const [lookupId, setLookupId] = useState("");
   const [, setLocation] = useLocation();
+  const [roleModalOpen, setRoleModalOpen] = useState(false);
+  const [loggingIn, setLoggingIn] = useState(false);
   const { refreshAuth } = useAuth();
+
+  // Fetch available roles
+  const { data: rolesData } = useQuery({
+    queryKey: ["/api/roles"],
+    retry: false,
+  });
 
   const handleLookup = () => {
     if (lookupId.trim()) {
@@ -17,48 +28,59 @@ export default function Landing() {
     }
   };
 
+  const handleRoleLogin = async (role: string) => {
+    setLoggingIn(true);
+    try {
+      const response = await fetch(`/api/login?role=${role}`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+      
+      if (response.ok) {
+        // If login successful, refresh auth state and navigate to dashboard
+        refreshAuth();
+        setRoleModalOpen(false);
+        setLocation('/');
+      } else {
+        console.error('Login failed');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+    } finally {
+      setLoggingIn(false);
+    }
+  };
+
   const handleLogin = (e: React.MouseEvent) => {
     e.preventDefault();
-    // Use fetch instead of window.location to prevent page refresh
-    fetch('/api/login', {
-      method: 'GET',
-      credentials: 'include',
-    })
-      .then(response => {
-        if (response.ok) {
-          // If login successful, refresh auth state and navigate to dashboard
-          refreshAuth();
-          setLocation('/');
-        } else {
-          // Handle any other response
-          console.error('Login failed');
-        }
-      })
-      .catch(error => {
-        console.error('Login error:', error);
-      });
+    setRoleModalOpen(true);
   };
 
   const handleStakeholderLogin = (e: React.MouseEvent) => {
     e.preventDefault();
-    // Use fetch instead of window.location to prevent page refresh
-    fetch('/api/login', {
-      method: 'GET',
-      credentials: 'include',
-    })
-      .then(response => {
-        if (response.ok) {
-          // If login successful, refresh auth state and navigate to dashboard
-          refreshAuth();
-          setLocation('/');
-        } else {
-          // Handle any other response
-          console.error('Login failed');
-        }
-      })
-      .catch(error => {
-        console.error('Login error:', error);
-      });
+    setRoleModalOpen(true);
+  };
+  
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case 'farmer': return <Leaf className="w-5 h-5" />;
+      case 'distributor': return <Truck className="w-5 h-5" />;
+      case 'retailer': return <Store className="w-5 h-5" />;
+      case 'inspector': return <CheckCircle2 className="w-5 h-5" />;
+      case 'consumer': return <User className="w-5 h-5" />;
+      default: return <User className="w-5 h-5" />;
+    }
+  };
+  
+  const getRoleColor = (role: string) => {
+    switch (role) {
+      case 'farmer': return 'bg-green-600 hover:bg-green-700';
+      case 'distributor': return 'bg-blue-600 hover:bg-blue-700';
+      case 'retailer': return 'bg-red-600 hover:bg-red-700';
+      case 'inspector': return 'bg-purple-600 hover:bg-purple-700';
+      case 'consumer': return 'bg-emerald-600 hover:bg-emerald-700';
+      default: return 'bg-gray-600 hover:bg-gray-700';
+    }
   };
 
   return (
@@ -71,9 +93,53 @@ export default function Landing() {
               <Leaf className="text-primary text-2xl" />
               <span className="text-xl font-bold text-foreground">AgriTrace</span>
             </div>
-            <Button onClick={handleLogin} data-testid="button-login">
-              Sign In
-            </Button>
+            <Dialog open={roleModalOpen} onOpenChange={setRoleModalOpen}>
+              <DialogTrigger asChild>
+                <Button data-testid="button-login">
+                  Sign In
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>Choose Your Role</DialogTitle>
+                  <DialogDescription>
+                    Select your role to access the appropriate dashboard and features.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid grid-cols-1 gap-4 py-4">
+                  {rolesData?.roles?.map((roleData: any) => (
+                    <Card 
+                      key={roleData.role}
+                      className="cursor-pointer hover:shadow-md transition-shadow"
+                      onClick={() => !loggingIn && handleRoleLogin(roleData.role)}
+                    >
+                      <CardContent className="flex items-center space-x-4 p-4">
+                        <div className={`p-3 rounded-full ${getRoleColor(roleData.role)} text-white`}>
+                          {getRoleIcon(roleData.role)}
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-lg">{roleData.label}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {roleData.user.firstName} {roleData.user.lastName}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {roleData.user.companyName || roleData.user.email}
+                          </p>
+                        </div>
+                        <Badge variant="secondary">
+                          {roleData.user.location}
+                        </Badge>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+                {loggingIn && (
+                  <div className="text-center py-4">
+                    <p className="text-muted-foreground">Signing in...</p>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
       </header>
@@ -111,9 +177,13 @@ export default function Landing() {
             </p>
           </div>
 
-          <Button size="lg" onClick={handleLogin} data-testid="button-get-started">
-            Get Started as Stakeholder
-          </Button>
+          <Dialog open={roleModalOpen} onOpenChange={setRoleModalOpen}>
+            <DialogTrigger asChild>
+              <Button size="lg" data-testid="button-get-started">
+                Get Started as Stakeholder
+              </Button>
+            </DialogTrigger>
+          </Dialog>
         </div>
       </section>
 
@@ -275,9 +345,13 @@ export default function Landing() {
           <p className="text-muted-foreground text-lg mb-8">
             Join the transparency revolution and build trust with your stakeholders
           </p>
-          <Button size="lg" onClick={handleLogin} data-testid="button-join-now">
-            Join AgriTrace Now
-          </Button>
+          <Dialog open={roleModalOpen} onOpenChange={setRoleModalOpen}>
+            <DialogTrigger asChild>
+              <Button size="lg" data-testid="button-join-now">
+                Join AgriTrace Now
+              </Button>
+            </DialogTrigger>
+          </Dialog>
         </div>
       </section>
 

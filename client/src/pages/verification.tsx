@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import Navigation from "@/components/navigation";
-import { useBlockchainContext } from "@/context/BlockchainContext";
+import { useBlockchain } from "@/context/BlockchainContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,7 +50,7 @@ import { format } from "date-fns";
 export default function Verification() {
   const { user, isLoading, isAuthenticated } = useAuth();
   const { toast } = useToast();
-  const { connected, contract, recordVerification } = useBlockchainContext();
+  const { isConnected, verifyProduct } = useBlockchain();
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [isCreateVerificationOpen, setIsCreateVerificationOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -99,20 +99,11 @@ export default function Verification() {
       const response = await apiRequest("POST", `/api/products/${selectedProduct}/verifications`, verificationData);
       
       // Then record on blockchain if connected
-      if (connected && contract && selectedProduct) {
+      if (isConnected && selectedProduct) {
         setBlockchainVerifying(true);
         try {
-          // Calculate validUntil timestamp (30 days from now)
-          const validUntil = Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60);
-          
           // Record verification on blockchain
-          await recordVerification(
-            response.id,
-            selectedProduct,
-            verificationData.verificationType,
-            verificationData.result,
-            validUntil
-          );
+          await verifyProduct(selectedProduct, `${verificationData.verificationType}: ${verificationData.result}`);
           
           // Update the verification in database with blockchain hash
           await apiRequest("PATCH", `/api/products/${selectedProduct}/verifications/${response.id}`, {
@@ -491,7 +482,7 @@ export default function Verification() {
                                       Blockchain Verified
                                     </Badge>
                                   </div>
-                                ) : connected ? (
+                                ) : isConnected ? (
                                   <Button 
                                     variant="outline" 
                                     size="sm" 
@@ -500,16 +491,10 @@ export default function Verification() {
                                       e.stopPropagation();
                                       setBlockchainVerifying(true);
                                       try {
-                                        // Calculate validUntil timestamp (30 days from now)
-                                        const validUntil = Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60);
-                                        
                                         // Record verification on blockchain
-                                        await recordVerification(
-                                          verification.id,
+                                        await verifyProduct(
                                           selectedProduct!,
-                                          verification.verificationType,
-                                          verification.result,
-                                          validUntil
+                                          `${verification.verificationType}: ${verification.result}`
                                         );
                                         
                                         // Update the verification in database with blockchain hash

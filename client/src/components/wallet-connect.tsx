@@ -1,98 +1,123 @@
-import { Button } from "@/components/ui/button";
-import { useBlockchainContext } from "@/context/BlockchainContext";
-import { Wallet, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Cpu, Activity, CheckCircle, TrendingUp } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useBlockchain } from "@/context/BlockchainContext";
 
 export default function WalletConnect() {
-  const { connected, connecting, connect, disconnect, account, error } = useBlockchainContext();
-  const [isHovering, setIsHovering] = useState(false);
+  const { 
+    isConnected,
+    isLoading,
+    stats,
+    mineBlock,
+    refreshStats
+  } = useBlockchain();
 
-  const handleConnect = async () => {
+  const [isMining, setIsMining] = useState(false);
+
+  const handleMineBlock = async () => {
+    if (stats.pendingTransactions === 0) return;
+    
+    setIsMining(true);
     try {
-      await connect();
+      await mineBlock();
     } catch (error) {
-      console.error("Failed to connect wallet:", error);
+      console.error('Mining failed:', error);
+    } finally {
+      setIsMining(false);
     }
   };
 
-  const handleDisconnect = () => {
-    disconnect();
-  };
-
-  const shortenAddress = (address: string) => {
-    return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
-  };
-
-  if (!window.ethereum) {
+  if (isConnected) {
     return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="gap-2"
-              onClick={() => window.open("https://metamask.io/download/", "_blank")}
-            >
-              <Wallet className="h-4 w-4" />
-              Install MetaMask
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>MetaMask is required to use blockchain features</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    );
-  }
-
-  if (connected && account) {
-    return (
-      <TooltipProvider>
-        <Tooltip open={isHovering}>
-          <TooltipTrigger asChild>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="gap-2"
-              onMouseEnter={() => setIsHovering(true)}
-              onMouseLeave={() => setIsHovering(false)}
-              onClick={handleDisconnect}
-              data-testid="wallet-disconnect-button"
-            >
-              <Wallet className="h-4 w-4 text-green-500" />
-              {shortenAddress(account)}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Click to disconnect wallet</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <div className="flex items-center space-x-2">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge 
+                variant="secondary" 
+                className="bg-green-100 text-green-800 border-green-200 cursor-help"
+              >
+                <CheckCircle className="w-3 h-3 mr-1" />
+                JS Blockchain
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>JavaScript Blockchain Active</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        
+        {/* Blockchain Stats */}
+        <div className="hidden md:flex items-center space-x-1 text-xs text-muted-foreground">
+          <span>Blocks: {stats.totalBlocks}</span>
+          <span>•</span>
+          <span>Products: {stats.totalProducts}</span>
+        </div>
+        
+        {/* Mine Block Button */}
+        {stats.pendingTransactions > 0 && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={handleMineBlock}
+                  disabled={isMining}
+                  size="sm"
+                  variant="outline"
+                  className="text-blue-600 hover:text-blue-700"
+                  data-testid="mine-block-button"
+                >
+                  {isMining ? (
+                    <>
+                      <Activity className="w-4 h-4 mr-1 animate-spin" />
+                      Mining...
+                    </>
+                  ) : (
+                    <>
+                      <Cpu className="w-4 h-4 mr-1" />
+                      Mine ({stats.pendingTransactions})
+                    </>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Mine pending transactions into a new block</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+        
+        {/* Refresh Stats */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={refreshStats}
+                className="text-muted-foreground hover:text-foreground"
+                data-testid="refresh-stats-button"
+              >
+                <TrendingUp className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Refresh blockchain statistics</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
     );
   }
 
   return (
-    <Button 
-      variant="outline" 
-      size="sm" 
-      className="gap-2"
-      onClick={handleConnect}
-      disabled={connecting}
-      data-testid="wallet-connect-button"
-    >
-      {connecting ? (
-        <>
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Connecting...
-        </>
-      ) : (
-        <>
-          <Wallet className="h-4 w-4" />
-          Connect Wallet
-        </>
-      )}
-    </Button>
+    <div className="flex items-center space-x-2">
+      <Badge variant="secondary" className="text-xs">
+        <Cpu className="w-3 h-3 mr-1" />
+        Blockchain Ready
+      </Badge>
+    </div>
   );
 }

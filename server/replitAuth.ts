@@ -26,17 +26,63 @@ export function getSession() {
   });
 }
 
-// Mock user for development
-const mockUser = {
-  id: "dev-user-1",
-  email: "farmer@example.com",
-  firstName: "John",
-  lastName: "Farmer",
-  profileImageUrl: "https://ui-avatars.com/api/?name=John+Farmer",
-  role: "farmer",
-  companyName: "Green Acres Farm",
-  location: "Farmville, CA",
-  verificationStatus: "verified",
+// Mock users for development - different roles
+const mockUsers = {
+  farmer: {
+    id: "dev-farmer-1",
+    email: "farmer@example.com",
+    firstName: "John",
+    lastName: "Farmer",
+    profileImageUrl: "https://ui-avatars.com/api/?name=John+Farmer&background=16a34a&color=ffffff",
+    role: "farmer",
+    companyName: "Green Acres Farm",
+    location: "Farmville, CA",
+    verificationStatus: "verified",
+  },
+  distributor: {
+    id: "dev-distributor-1",
+    email: "distributor@example.com",
+    firstName: "Sarah",
+    lastName: "Distribution",
+    profileImageUrl: "https://ui-avatars.com/api/?name=Sarah+Distribution&background=2563eb&color=ffffff",
+    role: "distributor",
+    companyName: "FastTrack Logistics",
+    location: "Los Angeles, CA",
+    verificationStatus: "verified",
+  },
+  retailer: {
+    id: "dev-retailer-1",
+    email: "retailer@example.com",
+    firstName: "Mike",
+    lastName: "Store",
+    profileImageUrl: "https://ui-avatars.com/api/?name=Mike+Store&background=dc2626&color=ffffff",
+    role: "retailer",
+    companyName: "Fresh Market Store",
+    location: "San Francisco, CA",
+    verificationStatus: "verified",
+  },
+  inspector: {
+    id: "dev-inspector-1",
+    email: "inspector@example.com",
+    firstName: "Emma",
+    lastName: "Inspector",
+    profileImageUrl: "https://ui-avatars.com/api/?name=Emma+Inspector&background=7c3aed&color=ffffff",
+    role: "inspector",
+    companyName: "Quality Assurance Corp",
+    location: "Sacramento, CA",
+    verificationStatus: "verified",
+  },
+  consumer: {
+    id: "dev-consumer-1",
+    email: "consumer@example.com",
+    firstName: "Alex",
+    lastName: "Consumer",
+    profileImageUrl: "https://ui-avatars.com/api/?name=Alex+Consumer&background=059669&color=ffffff",
+    role: "consumer",
+    companyName: null,
+    location: "San Jose, CA",
+    verificationStatus: "verified",
+  }
 };
 
 // Simple function to update user session for local development
@@ -70,37 +116,46 @@ export async function setupAuth(app: Express) {
     passport.use(new LocalStrategy(
       { usernameField: 'email', passwordField: 'password' },
       async (email, password, done) => {
-        // In development, always authenticate successfully with mock user
-        const user = mockUser;
+        // In development, find user by email to determine role
+        const user = Object.values(mockUsers).find(u => u.email === email) || mockUsers.farmer;
         await upsertUser(user);
         updateUserSession(user);
         return done(null, user);
       }
     ));
 
-    // Auto-login middleware for development
-    app.use((req, res, next) => {
-      if (!req.isAuthenticated()) {
-        req.login(mockUser, (err) => {
-          if (err) return next(err);
-          next();
-        });
-      } else {
-        next();
-      }
-    });
+    // Disable auto-login middleware - users should explicitly login
+    // This allows proper logout functionality
   }
 
   passport.serializeUser((user: Express.User, cb) => cb(null, user));
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
+  // Get available roles
+  app.get("/api/roles", (req, res) => {
+    if (isDevelopment) {
+      const roles = Object.keys(mockUsers).map(role => ({
+        role,
+        label: role.charAt(0).toUpperCase() + role.slice(1),
+        user: mockUsers[role as keyof typeof mockUsers]
+      }));
+      res.json({ roles });
+    } else {
+      res.status(500).send('Role selection not available in production');
+    }
+  });
+
   app.get("/api/login", (req, res, next) => {
     if (isDevelopment) {
-      // In development, authenticate with mock user
-      req.login(mockUser, (err) => {
+      // Get role from query parameter, default to farmer
+      const role = (req.query.role as string) || 'farmer';
+      const user = mockUsers[role as keyof typeof mockUsers] || mockUsers.farmer;
+      
+      // Authenticate with selected mock user
+      req.login(user, (err) => {
         if (err) return next(err);
         // Return success response instead of redirect for fetch requests
-        res.status(200).json({ success: true, user: mockUser });
+        res.status(200).json({ success: true, user });
       });
     } else {
       // In production, use Replit auth
@@ -116,9 +171,30 @@ export async function setupAuth(app: Express) {
     }
   });
 
-  app.get("/api/logout", (req, res) => {
-    req.logout(() => {
-      res.redirect('/');
+  // Handle both GET and POST for logout
+  app.all("/api/logout", (req, res) => {
+    req.logout((err) => {
+      if (err) {
+        console.error('Logout error:', err);
+        return res.status(500).json({ message: "Logout failed" });
+      }
+      
+      // Destroy the session
+      req.session.destroy((err) => {
+        if (err) {
+          console.error('Session destroy error:', err);
+        }
+        
+        // Clear the session cookie
+        res.clearCookie('connect.sid');
+        
+        // Return JSON response for API calls or redirect for browser requests
+        if (req.headers.accept && req.headers.accept.includes('application/json')) {
+          res.status(200).json({ success: true, message: "Logged out successfully" });
+        } else {
+          res.redirect('/');
+        }
+      });
     });
   });
 }

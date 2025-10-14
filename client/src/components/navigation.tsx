@@ -20,8 +20,25 @@ export default function Navigation() {
     { name: 'Lookup', href: '/lookup' },
   ];
 
-  const handleLogout = () => {
-    window.location.href = "/api/logout";
+  const handleLogout = async () => {
+    try {
+      // Call logout API
+      await fetch('/api/logout', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      // Force a full page reload to clear all state and redirect to landing page
+      window.location.replace('/');
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Fallback: force reload anyway to clear state
+      window.location.replace('/');
+    }
   };
 
   const NavItems = () => (

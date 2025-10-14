@@ -183,6 +183,19 @@ export const insertProductSchema = createInsertSchema(products).omit({
   createdAt: true,
   updatedAt: true,
   qrCode: true,
+}).extend({
+  harvestDate: z.union([z.string(), z.date()]).optional(),
+  expiryDate: z.union([z.string(), z.date()]).optional(),
+}).transform((data) => {
+  // Convert string dates to Date objects if they exist
+  const result = { ...data };
+  if (typeof data.harvestDate === 'string') {
+    result.harvestDate = new Date(data.harvestDate);
+  }
+  if (typeof data.expiryDate === 'string') {
+    result.expiryDate = new Date(data.expiryDate);
+  }
+  return result;
 });
 
 export const insertSupplyChainStageSchema = createInsertSchema(supplyChainStages).omit({

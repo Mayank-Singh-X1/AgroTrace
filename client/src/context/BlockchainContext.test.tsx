@@ -1,128 +1,65 @@
 import React from 'react';
 import { render, screen, act } from '@testing-library/react';
-import { BlockchainProvider, useBlockchainContext } from './BlockchainContext';
-import { ethers } from 'ethers';
+import { BlockchainProvider, useBlockchain } from './BlockchainContext';
+import { blockchain } from '../lib/blockchain';
 
-// Mock ethers
-jest.mock('ethers', () => {
-  const original = jest.requireActual('ethers');
-  return {
-    ...original,
-    BrowserProvider: jest.fn(),
-    Contract: jest.fn()
-  };
-});
+// Mock the blockchain module
+jest.mock('../lib/blockchain', () => ({
+  blockchain: {
+    getStats: jest.fn().mockReturnValue({
+      totalBlocks: 1,
+      totalTransactions: 0,
+      totalProducts: 0,
+      pendingTransactions: 0,
+      isValid: true
+    }),
+    getAllProducts: jest.fn().mockReturnValue([]),
+    getProduct: jest.fn().mockReturnValue(undefined),
+    addTransaction: jest.fn(),
+    minePendingTransactions: jest.fn().mockReturnValue(null)
+  },
+  generateTransactionId: jest.fn().mockReturnValue('tx-123'),
+  generateProductId: jest.fn().mockReturnValue('AGR-2024-001')
+}));
 
 // Test component that uses the blockchain context
 const TestComponent = () => {
-  const { connected, account, connect, disconnect } = useBlockchainContext();
+  const { isConnected, stats, createProduct } = useBlockchain();
   return (
     <div>
-      <div data-testid="connection-status">{connected ? 'Connected' : 'Disconnected'}</div>
-      <div data-testid="account">{account}</div>
-      <button data-testid="connect-btn" onClick={connect}>Connect</button>
-      <button data-testid="disconnect-btn" onClick={disconnect}>Disconnect</button>
+      <div data-testid="connection-status">{isConnected ? 'Connected' : 'Disconnected'}</div>
+      <div data-testid="total-blocks">{stats.totalBlocks}</div>
+      <div data-testid="total-products">{stats.totalProducts}</div>
+      <button data-testid="create-product-btn" onClick={() => createProduct({ name: 'Test Product' })}>Create Product</button>
     </div>
   );
 };
 
 describe('BlockchainContext', () => {
-  let mockProvider: any;
-  let mockSigner: any;
-  let mockContract: any;
-  let mockWindow: any;
-
   beforeEach(() => {
-    // Mock contract methods
-    mockContract = {
-      createProduct: jest.fn().mockResolvedValue({ wait: jest.fn().mockResolvedValue(true) }),
-      getProduct: jest.fn().mockResolvedValue({
-        id: 'prod-1',
-        batchNumber: 'BATCH-001',
-        name: 'Organic Apples',
-        category: 'Fruits',
-        producer: '0x1234567890123456789012345678901234567890',
-        isVerified: false
-      })
-    };
-
-    // Mock signer
-    mockSigner = {
-      getAddress: jest.fn().mockResolvedValue('0x1234567890123456789012345678901234567890')
-    };
-
-    // Mock provider
-    mockProvider = {
-      getSigner: jest.fn().mockResolvedValue(mockSigner)
-    };
-
-    // Mock window.ethereum
-    mockWindow = {
-      ethereum: {
-        request: jest.fn().mockImplementation((request) => {
-          if (request.method === 'eth_requestAccounts') {
-            return Promise.resolve(['0x1234567890123456789012345678901234567890']);
-          }
-          return Promise.resolve();
-        })
-      }
-    };
-
-    // Setup mocks
-    global.window = mockWindow;
-    (ethers.BrowserProvider as jest.Mock).mockImplementation(() => mockProvider);
-    (ethers.Contract as jest.Mock).mockImplementation(() => mockContract);
-  });
-
-  afterEach(() => {
     jest.clearAllMocks();
   });
 
-  it('should provide blockchain context with initial disconnected state', () => {
+  it('should provide blockchain context with initial connected state', () => {
     render(
       <BlockchainProvider>
         <TestComponent />
       </BlockchainProvider>
     );
-    
-    expect(screen.getByTestId('connection-status')).toHaveTextContent('Disconnected');
-    expect(screen.getByTestId('account')).toHaveTextContent('');
-  });
-
-  it('should connect to blockchain when connect is called', async () => {
-    render(
-      <BlockchainProvider>
-        <TestComponent />
-      </BlockchainProvider>
-    );
-    
-    await act(async () => {
-      screen.getByTestId('connect-btn').click();
-    });
     
     expect(screen.getByTestId('connection-status')).toHaveTextContent('Connected');
-    expect(screen.getByTestId('account')).toHaveTextContent('0x1234567890123456789012345678901234567890');
-    expect(mockWindow.ethereum.request).toHaveBeenCalledWith({ method: 'eth_requestAccounts' });
+    expect(screen.getByTestId('total-blocks')).toHaveTextContent('1');
+    expect(screen.getByTestId('total-products')).toHaveTextContent('0');
   });
 
-  it('should disconnect from blockchain when disconnect is called', async () => {
+  it('should display blockchain statistics', () => {
     render(
       <BlockchainProvider>
         <TestComponent />
       </BlockchainProvider>
     );
     
-    // First connect
-    await act(async () => {
-      screen.getByTestId('connect-btn').click();
-    });
-    
-    // Then disconnect
-    await act(async () => {
-      screen.getByTestId('disconnect-btn').click();
-    });
-    
-    expect(screen.getByTestId('connection-status')).toHaveTextContent('Disconnected');
-    expect(screen.getByTestId('account')).toHaveTextContent('');
+    expect(screen.getByTestId('total-blocks')).toHaveTextContent('1'); // Genesis block
+    expect(screen.getByTestId('total-products')).toHaveTextContent('0');
   });
 });
