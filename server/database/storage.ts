@@ -40,7 +40,7 @@ function stringifyJsonField(value: any) {
   }
 }
 import { randomUUID } from "crypto";
-import { qrCodeService } from './qrService';
+import { qrCodeService } from '../services/qrService';
 
 export interface IStorage {
   // Database initialization

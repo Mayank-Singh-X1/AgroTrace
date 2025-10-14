@@ -1,9 +1,9 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { storage } from "../database/storage";
+import { setupAuth, isAuthenticated } from "../middleware/replitAuth";
 import { insertProductSchema, insertSupplyChainStageSchema, insertTransactionSchema, insertVerificationSchema } from "@shared/schema";
-import { qrCodeService } from "./qrService";
+import { qrCodeService } from "../services/qrService";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {

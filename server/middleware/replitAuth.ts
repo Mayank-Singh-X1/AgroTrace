@@ -2,8 +2,8 @@ import passport from "passport";
 import session from "express-session";
 import type { Express, RequestHandler } from "express";
 import { Strategy as LocalStrategy } from "passport-local";
-import { storage } from "./storage";
-import { sqliteDb } from "./db";
+import { storage } from "../database/storage";
+import { sqliteDb } from "../database/db";
 import { randomUUID } from "crypto";
 
 // Local development mode - skip Replit authentication
