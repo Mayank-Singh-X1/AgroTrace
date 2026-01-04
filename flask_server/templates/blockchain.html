@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blockchain Visualizer - AgroTrace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .block-card {
+            transition: all 0.3s ease;
+        }
+
+        .block-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        .arrow {
+            font-size: 2rem;
+            color: #cbd5e1;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 min-h-screen p-8">
+    <div class="max-w-6xl mx-auto">
+        <header class="mb-8 flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900">AgroTrace Blockchain</h1>
+                <p class="text-gray-500">Real-time immutable supply chain ledger</p>
+            </div>
+            <a href="/" class="text-green-600 hover:text-green-700 font-medium">← Back to Dashboard</a>
+        </header>
+
+        <div id="chain-container" class="flex flex-wrap items-center gap-4">
+            <!-- Blocks will be injected here -->
+        </div>
+    </div>
+
+    <script>
+        async function fetchChain() {
+            try {
+                const response = await fetch('/api/blockchain');
+                const data = await response.json();
+                renderChain(data.chain);
+            } catch (error) {
+                console.error('Failed to fetch blockchain:', error);
+            }
+        }
+
+        function renderChain(chain) {
+            const container = document.getElementById('chain-container');
+            container.innerHTML = '';
+
+            chain.forEach((block, index) => {
+                const isGenesis = index === 0;
+                const blockCard = document.createElement('div');
+                blockCard.className = 'w-full md:w-80 bg-white rounded-lg border border-gray-200 p-6 block-card relative overflow-hidden';
+
+                let txHtml = '';
+                if (block.transactions && block.transactions.length > 0) {
+                    txHtml = `<div class="mt-4 border-t pt-2">
+                               <p class="text-xs font-semibold text-gray-500 mb-1">Transactions (${block.transactions.length})</p>
+                               <div class="space-y-1">
+                                 ${block.transactions.map(tx => `
+                                   <div class="text-xs bg-gray-50 p-1 rounded">
+                                     <span class="font-mono text-blue-600">${tx.type}</span>: ${tx.product_id.substr(0, 8)}...
+                                   </div>
+                                 `).join('')}
+                               </div>
+                             </div>`;
+                }
+
+                blockCard.innerHTML = `
+                    <div class="absolute top-0 right-0 p-2 opacity-10">
+                        <svg class="w-16 h-16" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"></path><path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd"></path></svg>
+                    </div>
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="bg-${isGenesis ? 'blue' : 'green'}-100 text-${isGenesis ? 'blue' : 'green'}-800 text-xs font-medium px-2.5 py-0.5 rounded">Block #${block.index}</span>
+                        <span class="text-gray-400 text-xs">${new Date(block.timestamp * 1000).toLocaleTimeString()}</span>
+                    </div>
+                    <div class="space-y-2">
+                        <div>
+                            <p class="text-xs text-gray-500">Hash</p>
+                            <p class="text-xs font-mono truncate" title="${block.hash || 'Calculated on backend'}">
+                                ${block.previous_hash ? block.previous_hash.substr(0, 16) + '...' : '0000000000000000'}
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500">Proof</p>
+                            <p class="text-sm font-mono">${block.proof}</p>
+                        </div>
+                        ${txHtml}
+                    </div>
+                `;
+
+                container.appendChild(blockCard);
+
+                if (index < chain.length - 1) {
+                    const arrow = document.createElement('div');
+                    arrow.className = 'hidden md:block arrow';
+                    arrow.innerHTML = '→';
+                    container.appendChild(arrow);
+                }
+            });
+        }
+
+        // Poll every 5 seconds
+        fetchChain();
+        setInterval(fetchChain, 5000);
+    </script>
+</body>
+
+</html>

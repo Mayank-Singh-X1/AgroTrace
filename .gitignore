@@ -1,6 +1,13 @@
-node_modules
-dist
-.DS_Store
-server/public
-vite.config.ts.*
-*.tar.gz
+__pycache__/
+*.py[cod]
+*$py.class
+*.db
+*.sqlite3
+instance/
+.env
+venv/
+# flask_server/static/
+# Keep static but ignore if large? No, we need static for the app to run. 
+# But usually compiled assets are ignored. 
+# Since I deleted the source, the static assets are now the source of truth for frontend. 
+# So I should NOT ignore them.

@@ -1,157 +1,93 @@
+# AgroTrace: Blockchain-Enabled Supply Chain Transparency
 
-# Agri-Trace
+AgroTrace is a comprehensive agricultural supply chain management system that leverages blockchain technology to ensure transparency, traceability, and trust from farm to table.
 
-# AgroChainTrace
+## 🚀 How It Works
 
-AgroChainTrace is a supply chain management system for agricultural products that leverages blockchain technology to ensure transparency, traceability, and authenticity verification throughout the supply chain.
+AgroTrace tracks agricultural products through every stage of the supply chain—from harvest to the final consumer. Each critical event (e.g., harvesting, shipping, inspection) is recorded as a transaction.
 
-## Features
+### The Blockchain Core
+Unlike traditional databases where history can be altered, AgroTrace uses a **Python-based Blockchain** to secure data:
+1.  **Immutable Ledger**: When a product is created or moved, a transaction is generated.
+2.  **Mining**: These transactions are "mined" into blocks using a Proof-of-Work algorithm (SHA-256).
+3.  **Chain of Trust**: Each block contains the hash of the previous block, creating an unbreakable chain. If anyone tries to tamper with past data, the hashes break, alerting the system.
+4.  **Verification**: Consumers can verify product authenticity by scanning a QR code, which checks the blockchain ledger for the product's unique batch hash.
 
-- **Product Tracking**: Track agricultural products from farm to consumer
-- **Blockchain Verification**: Verify product authenticity and transactions on the Ethereum blockchain
-- **Supply Chain Management**: Record and monitor each stage of the supply chain
-- **Transaction History**: View and verify the complete history of product transfers
-- **User Authentication**: Role-based access control for different supply chain participants
+---
 
-## Technology Stack
+## 👥 User Roles & Responsibilities
 
-### Frontend
-- React with TypeScript
-- Tailwind CSS for styling
-- React Query for data fetching
-- Ethers.js for blockchain interaction
+The platform is designed for various stakeholders in the agricultural ecosystem:
 
-### Backend
-- Node.js with Express
-- SQLite with Drizzle ORM
-- TypeScript
+### 1. 🧑‍🌾 Farmer (Producer)
+*   **Role**: The initiator of the supply chain.
+*   **Actions**:
+    *   **Register Products**: Logs new harvests with details like batch number, quantity, and harvest date.
+    *   **Generate QR Codes**: Creates unique, trackable QR codes for each product batch.
+    *   **Dashboard**: Monitors crop yield, active shipments, and estimated revenue.
+*   **Demo Account**: `farmer@example.com`
 
-### Blockchain
-- Ethereum blockchain
-- Hardhat development environment
-- Solidity smart contracts
-- OpenZeppelin contract libraries
+### 2. 🚚 Distributor (Logistics)
+*   **Role**: Handles the transport and storage of goods.
+*   **Actions**:
+    *   **Update Location**: Scans products to update their current location (e.g., "Arrived at Regional Warehouse").
+    *   **Handover**: Records transfer of custody to retailers or other distributors.
+*   **Interaction**: ensures the "Supply Chain Journey" timeline is accurate.
 
-## Blockchain Integration
+### 3. 🏪 Retailer (Seller)
+*   **Role**: The final point of sale to the consumer.
+*   **Actions**:
+    *   **Receive Stock**: Verifies incoming shipments against the blockchain record.
+    *   **Customer Display**: Displays the "verified authentic" badge to customers.
 
-AgroChainTrace integrates with the Ethereum blockchain to provide immutable records of product information, transactions, and verifications. This ensures that all participants in the supply chain can trust the data and verify the authenticity of products.
+### 4. 🕵️ Inspector (Regulatory)
+*   **Role**: Ensures quality and compliance.
+*   **Actions**:
+    *   **Verify Compliance**: Checks farming practices and logs certification (e.g., "Organic Certified").
+    *   **Flag Issues**: Can mark batches as "Flagged" or "Rejected" if they fail safety standards.
+*   **Demo Account**: `inspector@agency.gov`
 
-### Smart Contracts
+### 5. 🛒 Consumer (End User)
+*   **Role**: The purchaser of the product.
+*   **Actions**:
+    *   **Scan & Verify**: Uses the **Verify Page** (`/verify`) to check a product's history.
+    *   **View Journey**: Sees the map of where food came from and who handled it.
+    *   **Check Authenticity**: Confirms the product is safe and original via the blockchain hash.
 
-The core of our blockchain integration is the `AgroChainProduct` smart contract, which provides the following functionality:
+### 6. 🛡️ Admin (System)
+*   **Role**: Platform manager.
+*   **Actions**: User management and system oversight.
+*   **Demo Account**: `admin@agrotrace.com`
 
-- **Product Management**: Create and retrieve product information
-- **Transaction Recording**: Record product transfers between supply chain participants
-- **Supply Chain Stage Tracking**: Record and track different stages of the supply chain
-- **Verification Management**: Record and verify product authenticity certificates
+---
 
-### Blockchain Services
+## 🛠️ Technology Stack
 
-The application includes several services that interact with the blockchain:
+*   **Backend**: Python, Flask (Monolithic Architecture)
+*   **Database**: SQLite (with SQLAlchemy ORM)
+*   **Blockchain**: Custom Python implementation (SHA-256 Proof-of-Work)
+*   **Frontend**: HTML, JavaScript (Served via Flask Templates), Tailwind CSS
+*   **Security**: Session-based Authentication, Hash-linked Data Structures
 
-- **BlockchainService**: Handles connection to the Ethereum network
-- **ProductService**: Manages product-related operations on the blockchain
-- **TransactionService**: Records and retrieves product transfers
-- **VerificationService**: Validates product authenticity
+---
 
-### Frontend Integration
+## 🔍 How to Use
 
-The frontend integrates with blockchain services through:
-
-- **BlockchainContext**: React context provider for blockchain functionality
-- **useBlockchain Hook**: Custom hook for interacting with blockchain services
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js (v16 or higher)
-- npm or yarn
-- MetaMask or another Ethereum wallet (for blockchain interaction)
-
-### Installation
-
-1. Clone the repository
-   ```
-   git clone https://github.com/yourusername/AgroChainTrace.git
-   cd AgroChainTrace
-   ```
-
-2. Install dependencies
-   ```
-   npm install
-   ```
-
-3. Set up environment variables
-   ```
-   cp .env.example .env
-   ```
-   Edit the `.env` file with your configuration
-
-4. Compile and deploy smart contracts
-   ```
-   npx hardhat compile
-   npx hardhat run scripts/deploy.js --network localhost
-   ```
-
-5. Start the development server
-   ```
-   npm run dev
-   ```
-
-### Running Tests
-
-```
-# Run all tests
-npm test
-
-# Run blockchain smart contract tests
-npm run test:blockchain
-
-# Run blockchain service tests
-npm run test:services
-
-# Run frontend tests
-npm run test:frontend
+### 1. Installation
+```bash
+# Install required Python packages
+pip install -r flask_server/requirements.txt
 ```
 
-## Blockchain Wallet Integration
-
-To interact with the blockchain features:
-
-1. Install MetaMask or another Ethereum wallet browser extension
-2. Connect your wallet to the application using the "Connect Wallet" button
-3. Ensure you have some ETH for gas fees (use a testnet faucet for development)
-
-## Deployment
-
-### Smart Contract Deployment
-
-The smart contracts can be deployed to various networks:
-
+### 2. Running the App
+```bash
+# Start the server
+python flask_server/app.py
 ```
-# Deploy to local Hardhat network
-npx hardhat run scripts/deploy.js --network localhost
+The application will be accessible at **http://localhost:5000**.
 
-# Deploy to Sepolia testnet
-npx hardhat run scripts/deploy.js --network sepolia
-
-# Deploy to Ethereum mainnet
-npx hardhat run scripts/deploy.js --network mainnet
-```
-
-After deployment, update the contract address in your `.env` file.
-
-### Application Deployment
-
-1. Build the application
-   ```
-   npm run build
-   ```
-
-2. Deploy the built application to your hosting provider
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
+### 3. Key Pages
+*   **Dashboard**: `/` - Overview for logged-in users.
+*   **Login**: `/login` - Access for Farmers, Inspectors, etc.
+*   **Verify**: `/verify` - Public page to check product authenticity.
+*   **Blockchain Visualizer**: `/blockchain` - Live view of the mined blocks and ledger.
