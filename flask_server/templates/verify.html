@@ -7,6 +7,7 @@
     <title>Verify Product - AgroTrace</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -36,7 +37,25 @@
                     class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
                     Verify
                 </button>
+                <button onclick="toggleScanner()"
+                    class="inline-flex items-center px-4 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 4v1m6 11h2m-6 0h-2v4m0-11v-4m6 0h-2m2 0v2.5M5 15h2m-2 0v4m0-11v-4m0 0h2m-2 0v2.5M12 21a9 9 0 110-18 9 9 0 010 18z" />
+                    </svg>
+                </button>
             </div>
+        </div>
+
+        <!-- Scanner Area -->
+        <div id="scannerContainer" class="hidden mb-8 bg-black rounded-lg overflow-hidden relative">
+            <div id="reader" class="w-full max-w-lg mx-auto"></div>
+            <button onclick="stopScanner()"
+                class="absolute top-4 right-4 text-white bg-red-600 rounded-full p-2 hover:bg-red-700">
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
         </div>
 
         <!-- Results Area -->
@@ -177,6 +196,65 @@
             `).join('');
 
             document.getElementById('resultsArea').classList.remove('hidden');
+            document.getElementById('resultsArea').classList.remove('hidden');
+        }
+
+        let html5QrcodeScanner = null;
+
+        function toggleScanner() {
+            const container = document.getElementById('scannerContainer');
+            if (container.classList.contains('hidden')) {
+                container.classList.remove('hidden');
+                startScanner();
+            } else {
+                stopScanner();
+            }
+        }
+
+        function startScanner() {
+            html5QrcodeScanner = new Html5Qrcode("reader");
+            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+            html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess)
+                .catch(err => {
+                    console.error("Error starting scanner", err);
+                    alert("Could not start camera. Please ensure you have granted camera permissions.");
+                });
+        }
+
+        function stopScanner() {
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.stop().then(() => {
+                    document.getElementById('scannerContainer').classList.add('hidden');
+                    html5QrcodeScanner.clear();
+                }).catch(err => {
+                    console.error("Failed to stop scanner", err);
+                });
+            } else {
+                document.getElementById('scannerContainer').classList.add('hidden');
+            }
+        }
+
+        function onScanSuccess(decodedText, decodedResult) {
+            // Check if it's a URL or just ID
+            let batchId = decodedText;
+            try {
+                // If it's a full URL like http://localhost:5000/verify/BATCH123
+                if (decodedText.includes('/verify/')) {
+                    batchId = decodedText.split('/verify/')[1];
+                }
+                // If it's the new format http://localhost:5000/verify?id=BATCH123
+                else if (decodedText.includes('id=')) {
+                    const url = new URL(decodedText);
+                    batchId = url.searchParams.get('id');
+                }
+            } catch (e) {
+                console.log("Error parsing QR URL, using raw text", e);
+            }
+
+            document.getElementById('batchInput').value = batchId;
+            stopScanner();
+            verifyProduct();
         }
     </script>
 </body>

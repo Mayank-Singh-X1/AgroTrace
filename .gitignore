@@ -6,6 +6,7 @@ __pycache__/
 instance/
 .env
 venv/
+*.md
 # flask_server/static/
 # Keep static but ignore if large? No, we need static for the app to run. 
 # But usually compiled assets are ignored. 

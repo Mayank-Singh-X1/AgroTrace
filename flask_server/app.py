@@ -505,7 +505,7 @@ def track_redirect(batch_number):
 
 @app.route('/verify/<batch_number>')
 def verify_redirect(batch_number):
-    return redirect(f'/?verify={batch_number}')
+    return redirect(f'/verify?id={batch_number}')
 
 # Supply Chain
 @app.route('/api/products/<id>/supply-chain', methods=['GET'])
